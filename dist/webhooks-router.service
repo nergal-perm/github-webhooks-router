@@ -1,0 +1,14 @@
+[Unit]
+Description=GitHub Webhooks Router Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/webhooks-router
+ExecStart=/usr/bin/java -jar /opt/webhooks-router/webhooks-router.jar
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
