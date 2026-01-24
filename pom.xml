@@ -13,6 +13,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <slf4j.version>2.0.9</slf4j.version>
         <logback.version>1.4.14</logback.version>
+        <junit.version>5.10.1</junit.version>
+        <assertj.version>3.24.2</assertj.version>
+        <testable-io.version>0.3.1</testable-io.version>
     </properties>
 
     <dependencies>
@@ -20,6 +23,23 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.nergal-perm</groupId>
+            <artifactId>testable-io</artifactId>
+            <version>${testable-io.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
