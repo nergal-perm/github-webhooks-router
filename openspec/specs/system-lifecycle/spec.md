@@ -1,7 +1,7 @@
 # system-lifecycle Specification
 
 ## Purpose
-TBD - created by archiving change scaffold-walking-skeleton. Update Purpose after archive.
+Defines the core runtime behavior, lifecycle management, and liveness monitoring of the daemon application.
 ## Requirements
 ### Requirement: System Runtime
 The application MUST run on a standard Java Virtual Machine.
