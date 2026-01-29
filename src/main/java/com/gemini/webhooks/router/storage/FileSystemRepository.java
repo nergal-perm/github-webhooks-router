@@ -3,6 +3,8 @@ package com.gemini.webhooks.router.storage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 
 public class FileSystemRepository implements TaskRepository {
     private final String folder;
@@ -20,6 +22,17 @@ public class FileSystemRepository implements TaskRepository {
         ensureFolderExists();
         saveFile(filename, content);
         return Path.of(folder, filename);
+    }
+
+    @Override
+    public List<String> list() throws IOException {
+        ensureFolderExists();
+        try (Stream<Path> paths = Files.list(Path.of(folder).toAbsolutePath())) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .map(path -> path.getFileName().toString())
+                    .toList();
+        }
     }
 
     private void saveFile(String filename, String content) throws IOException {
