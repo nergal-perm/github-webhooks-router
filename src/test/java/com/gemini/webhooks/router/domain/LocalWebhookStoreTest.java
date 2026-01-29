@@ -98,5 +98,10 @@ class LocalWebhookStoreTest {
         public List<String> list() throws IOException {
             return List.of();
         }
+
+        @Override
+        public Path move(String filename, Path fromDir, Path toDir) throws IOException {
+            return toDir.resolve(filename);
+        }
     }
 }

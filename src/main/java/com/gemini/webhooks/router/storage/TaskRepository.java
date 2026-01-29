@@ -8,4 +8,6 @@ public interface TaskRepository {
     Path save(String filename, String content) throws IOException;
 
     List<String> list() throws IOException;
+
+    Path move(String filename, Path fromDir, Path toDir) throws IOException;
 }

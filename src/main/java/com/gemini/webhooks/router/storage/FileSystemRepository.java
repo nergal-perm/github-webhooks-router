@@ -2,7 +2,9 @@ package com.gemini.webhooks.router.storage;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -33,6 +35,21 @@ public class FileSystemRepository implements TaskRepository {
                     .map(path -> path.getFileName().toString())
                     .toList();
         }
+    }
+
+    @Override
+    public Path move(String filename, Path fromDir, Path toDir) throws IOException {
+        Path source = fromDir.toAbsolutePath().resolve(filename);
+        if (Files.notExists(source)) {
+            throw new NoSuchFileException(source.toString());
+        }
+        Path destinationDir = toDir.toAbsolutePath();
+        if (Files.notExists(destinationDir)) {
+            Files.createDirectories(destinationDir);
+        }
+        Path destination = destinationDir.resolve(filename);
+        Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
+        return destination;
     }
 
     private void saveFile(String filename, String content) throws IOException {

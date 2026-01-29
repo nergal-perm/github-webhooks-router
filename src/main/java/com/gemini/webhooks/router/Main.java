@@ -1,8 +1,13 @@
 package com.gemini.webhooks.router;
 
+import com.gemini.webhooks.router.dispatch.Dispatcher;
+import com.gemini.webhooks.router.storage.FileSystemRepository;
+import com.gemini.webhooks.router.storage.TaskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,10 +20,34 @@ public class Main {
     public static void main(String[] args) {
         logger.info("Starting Webhooks Router Daemon...");
 
+        // Initialize configuration
+        AppConfig config = AppConfig.defaults();
+
+        // Ensure directories exist
+        try {
+            ensureDirectoriesExist(config);
+        } catch (IOException e) {
+            logger.error("Failed to initialize directories", e);
+            System.exit(1);
+        }
+
+        // Initialize dispatcher
+        TaskRepository repository = FileSystemRepository.create(config.pendingDir().toString());
+        Dispatcher dispatcher = new Dispatcher(config, repository);
+
         // Schedule the "Hello World" task every 60 seconds
         scheduler.scheduleAtFixedRate(() -> {
             logger.info("Hello, world. The time is {}", Instant.now());
         }, 0, 60, TimeUnit.SECONDS);
+
+        // Schedule dispatcher every 60 seconds
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                dispatcher.dispatch();
+            } catch (Exception e) {
+                logger.error("Dispatcher error", e);
+            }
+        }, 10, 60, TimeUnit.SECONDS);
 
         // Add shutdown hook for graceful shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -33,5 +62,13 @@ public class Main {
             }
             logger.info("Shutdown complete.");
         }));
+    }
+
+    private static void ensureDirectoriesExist(AppConfig config) throws IOException {
+        Files.createDirectories(config.pendingDir());
+        Files.createDirectories(config.processingDir());
+        Files.createDirectories(config.completedDir());
+        Files.createDirectories(config.failedDir());
+        logger.info("Initialized storage directories at: {}", config.storageRoot());
     }
 }
