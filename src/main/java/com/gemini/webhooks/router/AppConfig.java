@@ -26,4 +26,8 @@ public record AppConfig(Path storageRoot, Path repoBaseDir) {
     public Path failedDir() {
         return storageRoot.resolve("failed");
     }
+
+    public Path outputsDir() {
+        return storageRoot.resolve("outputs");
+    }
 }

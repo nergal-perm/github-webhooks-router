@@ -28,11 +28,19 @@ public class FileSystemRepository implements TaskRepository {
 
     @Override
     public List<String> list() throws IOException {
-        ensureFolderExists();
-        try (Stream<Path> paths = Files.list(Path.of(folder).toAbsolutePath())) {
+        return list(Path.of(folder));
+    }
+
+    @Override
+    public List<String> list(Path directory) throws IOException {
+        Path path = directory.toAbsolutePath();
+        if (Files.notExists(path)) {
+            return List.of();
+        }
+        try (Stream<Path> paths = Files.list(path)) {
             return paths
                     .filter(Files::isRegularFile)
-                    .map(path -> path.getFileName().toString())
+                    .map(p -> p.getFileName().toString())
                     .toList();
         }
     }

@@ -3,13 +3,16 @@ package com.gemini.webhooks.router.dispatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 
 public class AgentProcess {
     private static final Logger logger = LoggerFactory.getLogger(AgentProcess.class);
     private static final String AGENT_COMMAND = "gemini";
+    private static final long AGENT_TIMEOUT_MINUTES = 5;
 
     private final Path repoBaseDir;
 
@@ -17,7 +20,7 @@ public class AgentProcess {
         this.repoBaseDir = repoBaseDir;
     }
 
-    public ProcessResult execute(String repoName, String webhookContent) {
+    public ProcessResult execute(String repoName, String webhookContent, Path outputFile) {
         Path repoDir = repoBaseDir.resolve(repoName);
 
         if (!Files.isDirectory(repoDir)) {
@@ -26,13 +29,27 @@ public class AgentProcess {
         }
 
         try {
+            // Ensure output file parent directory exists
+            Files.createDirectories(outputFile.getParent());
+
             logger.info("Launching agent for repository: {} in directory: {}", repoName, repoDir);
+            logger.info("Agent output will be written to: {}", outputFile);
+
+            File outputFileObj = outputFile.toFile();
             Process process = new ProcessBuilder(AGENT_COMMAND, "-y", webhookContent)
                     .directory(repoDir.toFile())
-                    .inheritIO()
+                    .redirectOutput(ProcessBuilder.Redirect.to(outputFileObj))
+                    .redirectError(ProcessBuilder.Redirect.to(outputFileObj))
                     .start();
 
-            int exitCode = process.waitFor();
+            boolean finished = process.waitFor(AGENT_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+            if (!finished) {
+                logger.error("Agent process timed out after {} minutes", AGENT_TIMEOUT_MINUTES);
+                process.destroyForcibly();
+                return ProcessResult.failure("Agent process timed out");
+            }
+
+            int exitCode = process.exitValue();
             logger.info("Agent process completed with exit code: {}", exitCode);
 
             if (exitCode == 0) {

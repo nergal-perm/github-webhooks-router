@@ -9,5 +9,7 @@ public interface TaskRepository {
 
     List<String> list() throws IOException;
 
+    List<String> list(Path directory) throws IOException;
+
     Path move(String filename, Path fromDir, Path toDir) throws IOException;
 }

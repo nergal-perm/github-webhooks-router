@@ -69,6 +69,7 @@ public class Main {
         Files.createDirectories(config.processingDir());
         Files.createDirectories(config.completedDir());
         Files.createDirectories(config.failedDir());
+        Files.createDirectories(config.outputsDir());
         logger.info("Initialized storage directories at: {}", config.storageRoot());
     }
 }

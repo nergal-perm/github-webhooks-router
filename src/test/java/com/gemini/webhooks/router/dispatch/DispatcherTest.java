@@ -34,8 +34,10 @@ class DispatcherTest {
         Files.createDirectories(config.processingDir());
         Files.createDirectories(config.completedDir());
         Files.createDirectories(config.failedDir());
+        Files.createDirectories(config.outputsDir());
 
-        dispatcher = new Dispatcher(config, repository);
+        // Use synchronous executor for tests
+        dispatcher = new Dispatcher(config, repository, new AgentProcess(repoBaseDir), Runnable::run);
     }
 
     @Test
@@ -60,7 +62,7 @@ class DispatcherTest {
     void dispatch_shouldMoveToFailedWhenRepoDirectoryNotFound() throws IOException {
         String validFilename = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
         Path webhookFile = config.pendingDir().resolve(validFilename);
-        Files.writeString(webhookFile, "Fix the bug");
+        Files.writeString(webhookFile, "{}");
 
         dispatcher.dispatch();
 
@@ -69,22 +71,91 @@ class DispatcherTest {
     }
 
     @Test
-    void dispatch_shouldSkipWhenAgentIsActive() throws IOException {
+    void dispatch_shouldProcessAllPendingFiles() throws IOException {
         // Create two webhook files
         String filename1 = "2026-01-29T12:00:00.000Z_repo1_abc12345.json";
         String filename2 = "2026-01-29T12:00:01.000Z_repo2_def67890.json";
-        Files.writeString(config.pendingDir().resolve(filename1), "task 1");
-        Files.writeString(config.pendingDir().resolve(filename2), "task 2");
+        Files.writeString(config.pendingDir().resolve(filename1), "{}");
+        Files.writeString(config.pendingDir().resolve(filename2), "{}");
 
         // Create repo directories
         Files.createDirectories(config.repoBaseDir().resolve("repo1"));
         Files.createDirectories(config.repoBaseDir().resolve("repo2"));
 
-        // First dispatch will process the first file
+        // Dispatch should process BOTH files
         dispatcher.dispatch();
 
-        // Both files should still be in pending or processing since agent will fail
-        // (gemini command doesn't exist)
-        assertThat(Files.exists(config.pendingDir().resolve(filename2))).isTrue();
+        // Both files should be out of pending and processing
+        assertThat(Files.exists(config.pendingDir().resolve(filename1))).isFalse();
+        assertThat(Files.exists(config.pendingDir().resolve(filename2))).isFalse();
+        assertThat(Files.exists(config.processingDir().resolve(filename1))).isFalse();
+        assertThat(Files.exists(config.processingDir().resolve(filename2))).isFalse();
+    }
+
+    @Test
+    void dispatch_shouldRecoverStuckWebhooks() throws IOException {
+        // Create a file in processing directory
+        String filename = "2026-01-30T12:00:00.000Z_test-repo_abc12345.json";
+        Files.createDirectories(config.processingDir());
+        Files.writeString(config.processingDir().resolve(filename), "{}");
+        
+        // Create repo dir so it doesn't fail on that
+        Files.createDirectories(config.repoBaseDir().resolve("test-repo"));
+
+        // Dispatch should recover the file and then process it
+        dispatcher.dispatch();
+
+        // File should be processed (moved out of processing)
+        assertThat(Files.exists(config.processingDir().resolve(filename))).isFalse();
+    }
+
+    @Test
+    void dispatch_shouldCreateOutputFileForWebhookWithIssue() throws IOException {
+        String filename = "2026-01-30T12:00:00.000Z_test-repo_abc12345.json";
+        String webhookContent = """
+                {
+                    "issue": {
+                        "number": 42,
+                        "title": "Geography question"
+                    },
+                    "comment": {
+                        "body": "What is the capital of Great Britain?"
+                    }
+                }
+                """;
+        Files.writeString(config.pendingDir().resolve(filename), webhookContent);
+        Files.createDirectories(config.repoBaseDir().resolve("test-repo"));
+
+        dispatcher.dispatch();
+
+        // Check that an output file was created in the outputs directory
+        assertThat(Files.list(config.outputsDir()))
+                .anyMatch(path -> path.getFileName().toString().startsWith("test-repo_issue-42_"));
+    }
+
+    @Test
+    void dispatch_shouldCreateOutputFileForWebhookWithoutIssue() throws IOException {
+        String filename = "2026-01-30T12:00:00.000Z_test-repo_def67890.json";
+        String webhookContent = """
+                {
+                    "ref": "refs/heads/main",
+                    "commits": [
+                        {
+                            "message": "What is the capital of Great Britain?"
+                        }
+                    ]
+                }
+                """;
+        Files.writeString(config.pendingDir().resolve(filename), webhookContent);
+        Files.createDirectories(config.repoBaseDir().resolve("test-repo"));
+
+        dispatcher.dispatch();
+
+        // Check that an output file was created without issue number
+        assertThat(Files.list(config.outputsDir()))
+                .anyMatch(path -> {
+                    String name = path.getFileName().toString();
+                    return name.startsWith("test-repo_") && !name.contains("issue");
+                });
     }
 }
