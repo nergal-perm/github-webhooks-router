@@ -51,16 +51,19 @@ Then it reads the file content as a UTF-8 string
 And uses this content as the prompt argument for the agent command.
 
 ### Requirement: Agent Subprocess Execution
-The dispatcher MUST launch an external agent executable as a subprocess to handle each webhook file.
+The dispatcher MUST launch an external agent executable as a subprocess to handle each webhook file and capture its output to a dedicated file.
 
-#### Scenario: Successful Launch
+#### Scenario: Successful Launch with Output Capture
 Given a webhook file "2026-01-29T12:00:00.000Z_my-repo_abc123.json" exists in pending
-And the file content is "Fix the login bug"
+And the file content is `{"issue": {"number": 42}, "comment": {"body": "Fix the login bug"}}`
 When the dispatcher processes this file
 Then it extracts the repository name "my-repo" from the filename
+And it extracts the issue number 42 from the JSON payload
 And moves the file to the processing directory
 And changes the working directory to "~/Dev/my-repo"
-And launches the agent subprocess with command `gemini -y "Fix the login bug"`
+And creates an output file at "outputs/my-repo_issue-42_2026-01-30T10:30:00.000Z.txt"
+And launches the agent subprocess with command `gemini -y "{...}"`
+And redirects subprocess stdout and stderr to the output file
 And waits for the subprocess to complete.
 
 #### Scenario: Repository Directory Not Found
@@ -68,13 +71,22 @@ Given a webhook file for repository "unknown-repo"
 When the dispatcher attempts to change to directory "~/Dev/unknown-repo"
 And the directory does not exist
 Then an error is logged
-And the webhook file is moved to the failed directory.
+And the webhook file is moved to the failed directory
+And no output file is created.
 
 #### Scenario: Agent Executable Not Found
 Given the agent executable "gemini" is not in the system PATH
 When the dispatcher attempts to launch the subprocess
 Then an error is logged
-And the webhook file is moved to the failed directory.
+And the webhook file is moved to the failed directory
+And an output file is created with the error message.
+
+#### Scenario: Output File Creation Failure
+Given the outputs directory is not writable
+When the dispatcher attempts to create an output file
+Then an error is logged
+And the webhook file is moved to the failed directory
+And processing continues with the next webhook on subsequent scans.
 
 ### Requirement: File State Transitions
 The dispatcher MUST move webhook files through state directories based on processing outcomes.
@@ -95,20 +107,20 @@ When the subprocess exits with a non-zero exit code
 Then the webhook file is moved from processing to failed
 And the exit code and any error output are logged.
 
-### Requirement: Serial Processing
-The dispatcher MUST process webhook files one at a time (serially) in this increment.
+### Requirement: Per-Repository Concurrency
+The dispatcher MUST allow processing multiple webhooks in parallel if they target different repositories, while ensuring only one agent runs per repository at a time.
 
-#### Scenario: Single Active Agent
-Given the dispatcher is processing a webhook file
-When the next scan interval occurs
-And the current agent subprocess is still running
-Then the dispatcher skips processing additional files until the current subprocess completes.
+#### Scenario: Parallel Processing for Different Repos
+Given the pending directory contains "repo1_abc.json" and "repo2_def.json"
+When the dispatcher scans the queue
+Then it launches an agent for "repo1"
+And it simultaneously launches an agent for "repo2".
 
-#### Scenario: Sequential Processing
-Given pending directory contains files "a.json" and "b.json"
-When the dispatcher processes the queue
-Then it processes "a.json" first
-And only after "a.json" processing completes does it process "b.json".
+#### Scenario: Serial Processing for Same Repo
+Given the pending directory contains "repo1_abc.json" and "repo1_def.json"
+When the dispatcher scans the queue
+Then it launches an agent for "repo1" to process "abc.json"
+And it skips "def.json" until the first agent completes.
 
 ### Requirement: Error Handling
 The dispatcher MUST handle errors gracefully without crashing the daemon.
@@ -125,4 +137,47 @@ Given a file move operation fails due to I/O error
 When the dispatcher attempts to transition file state
 Then the error is logged
 And the dispatcher continues processing other files on subsequent scans.
+
+### Requirement: Issue Number Extraction
+The dispatcher MUST extract the issue number from webhook JSON payloads when present.
+
+#### Scenario: GitHub Issue Webhook
+Given a webhook payload contains `{"issue": {"number": 42}}`
+When the dispatcher parses the webhook content
+Then it extracts the issue number as 42.
+
+#### Scenario: GitHub Pull Request Webhook
+Given a webhook payload contains `{"pull_request": {"number": 123}}`
+When the dispatcher parses the webhook content
+Then it extracts the issue number as 123.
+
+#### Scenario: Non-Issue Webhook
+Given a webhook payload is a push event without issue or pull_request fields
+When the dispatcher parses the webhook content
+Then it returns no issue number (null or empty).
+
+#### Scenario: Malformed JSON
+Given a webhook payload contains invalid JSON
+When the dispatcher attempts to parse the content
+Then it logs a warning and continues processing without an issue number.
+
+### Requirement: Agent Output File Naming
+The dispatcher MUST generate unique output filenames for each agent session.
+
+#### Scenario: With Issue Number
+Given a webhook for repository "my-repo" with issue number 42
+And the session starts at "2026-01-30T10:30:00.000Z"
+When the dispatcher generates the output filename
+Then the filename is "my-repo_issue-42_2026-01-30T10:30:00.000Z.txt".
+
+#### Scenario: Without Issue Number
+Given a webhook for repository "my-repo" with no issue number
+And the session starts at "2026-01-30T10:30:00.000Z"
+When the dispatcher generates the output filename
+Then the filename is "my-repo_2026-01-30T10:30:00.000Z.txt".
+
+#### Scenario: Filename Sanitization
+Given a repository name contains special characters
+When the dispatcher generates the output filename
+Then special characters are handled consistently with webhook filename parsing rules.
 
