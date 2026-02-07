@@ -3,7 +3,6 @@ package com.gemini.webhooks.router.dispatch;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -14,8 +13,51 @@ class AgentProcessTest {
     Path tempDir;
 
     @Test
-    void execute_shouldFailWhenRepositoryDirectoryNotFound() {
-        AgentProcess agentProcess = new AgentProcess(tempDir);
+    void createNull_returnsConfiguredFailure() {
+        AgentProcess agentProcess = AgentProcess.createNull(AgentProcess.ProcessResult.failure("simulated error"));
+
+        AgentProcess.ProcessResult result = agentProcess.execute("any-repo", "any content", tempDir.resolve("output.txt"));
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.errorMessage()).isEqualTo("simulated error");
+    }
+
+    @Test
+    void createNull_doesNotTouchTheFilesystem() {
+        AgentProcess agentProcess = AgentProcess.createNull();
+        Path nonExistentOutput = Path.of("/nonexistent/dir/output.txt");
+
+        AgentProcess.ProcessResult result = agentProcess.execute("any-repo", "any content", nonExistentOutput);
+
+        assertThat(result.isSuccess()).isTrue();
+    }
+
+    @Test
+    void trackOutput_capturesExecuteCalls() {
+        AgentProcess agentProcess = AgentProcess.createNull();
+        var output = agentProcess.trackOutput();
+        Path outputFile = tempDir.resolve("output.txt");
+
+        agentProcess.execute("my-repo", "webhook payload", outputFile);
+
+        assertThat(output.data()).hasSize(1);
+        assertThat(output.data().getFirst().repoName()).isEqualTo("my-repo");
+        assertThat(output.data().getFirst().webhookContent()).isEqualTo("webhook payload");
+        assertThat(output.data().getFirst().outputFile()).isEqualTo(outputFile);
+    }
+
+    @Test
+    void createNull_returnsSuccessByDefault() {
+        AgentProcess agentProcess = AgentProcess.createNull();
+
+        AgentProcess.ProcessResult result = agentProcess.execute("any-repo", "any content", tempDir.resolve("output.txt"));
+
+        assertThat(result.isSuccess()).isTrue();
+    }
+
+    @Test
+    void create_failsWhenRepositoryDirectoryNotFound() {
+        AgentProcess agentProcess = AgentProcess.create(tempDir);
         Path outputFile = tempDir.resolve("output.txt");
 
         AgentProcess.ProcessResult result = agentProcess.execute("non-existent-repo", "test content", outputFile);
@@ -24,34 +66,4 @@ class AgentProcessTest {
         assertThat(result.errorMessage()).contains("Repository directory not found");
     }
 
-    @Test
-    void execute_shouldSucceedWithValidRepositoryDirectory() throws Exception {
-        Path repoDir = tempDir.resolve("test-repo");
-        Files.createDirectories(repoDir);
-        Path outputFile = tempDir.resolve("outputs").resolve("output.txt");
-
-        AgentProcess agentProcess = new AgentProcess(tempDir);
-
-        // Note: The actual result depends on whether 'gemini' command exists in PATH
-        // If gemini command exists and accepts the arguments, it may succeed
-        AgentProcess.ProcessResult result = agentProcess.execute("test-repo", "What is the capital of Great Britain?", outputFile);
-
-        assertThat(result).isNotNull();
-    }
-
-    @Test
-    void execute_shouldCreateOutputFile() throws Exception {
-        Path repoDir = tempDir.resolve("test-repo");
-        Files.createDirectories(repoDir);
-        Path outputDir = tempDir.resolve("outputs");
-        Path outputFile = outputDir.resolve("test-output.txt");
-
-        AgentProcess agentProcess = new AgentProcess(tempDir);
-
-        // Execute (will likely fail because gemini command doesn't exist, but should create the file)
-        agentProcess.execute("test-repo", "What is the capital of Great Britain?", outputFile);
-
-        // Output file should be created
-        assertThat(outputFile).exists();
-    }
 }

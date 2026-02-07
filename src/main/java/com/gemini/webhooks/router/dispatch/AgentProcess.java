@@ -7,6 +7,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class AgentProcess {
@@ -15,12 +18,39 @@ public class AgentProcess {
     private static final long AGENT_TIMEOUT_MINUTES = 5;
 
     private final Path repoBaseDir;
+    private final ProcessResult nullResult;
+    private final List<OutputTracker> trackers = new ArrayList<>();
 
-    public AgentProcess(Path repoBaseDir) {
+    public static AgentProcess create(Path repoBaseDir) {
+        return new AgentProcess(repoBaseDir, null);
+    }
+
+    public static AgentProcess createNull() {
+        return createNull(ProcessResult.success());
+    }
+
+    public static AgentProcess createNull(ProcessResult result) {
+        return new AgentProcess(null, result);
+    }
+
+    private AgentProcess(Path repoBaseDir, ProcessResult nullResult) {
         this.repoBaseDir = repoBaseDir;
+        this.nullResult = nullResult;
+    }
+
+    public OutputTracker trackOutput() {
+        OutputTracker tracker = new OutputTracker();
+        trackers.add(tracker);
+        return tracker;
     }
 
     public ProcessResult execute(String repoName, String webhookContent, Path outputFile) {
+        trackers.forEach(t -> t.add(new ExecuteRecord(repoName, webhookContent, outputFile)));
+
+        if (nullResult != null) {
+            return nullResult;
+        }
+
         Path repoDir = repoBaseDir.resolve(repoName);
 
         if (!Files.isDirectory(repoDir)) {
@@ -64,6 +94,20 @@ public class AgentProcess {
             Thread.currentThread().interrupt();
             logger.error("Agent process interrupted", e);
             return ProcessResult.failure("Agent process interrupted: " + e.getMessage());
+        }
+    }
+
+    public record ExecuteRecord(String repoName, String webhookContent, Path outputFile) {}
+
+    public static class OutputTracker {
+        private final List<ExecuteRecord> data = new ArrayList<>();
+
+        void add(ExecuteRecord record) {
+            data.add(record);
+        }
+
+        public List<ExecuteRecord> data() {
+            return Collections.unmodifiableList(data);
         }
     }
 

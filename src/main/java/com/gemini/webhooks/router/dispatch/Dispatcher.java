@@ -29,7 +29,7 @@ public class Dispatcher {
     private final Executor executor;
 
     public Dispatcher(AppConfig config, TaskRepository repository) {
-        this(config, repository, new AgentProcess(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
+        this(config, repository, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
     }
 
     public Dispatcher(AppConfig config, TaskRepository repository, AgentProcess agentProcess, Executor executor) {

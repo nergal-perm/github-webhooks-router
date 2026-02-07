@@ -1,7 +1,7 @@
 # dispatcher Specification
 
 ## Purpose
-TBD - created by archiving change add-basic-dispatcher. Update Purpose after archive.
+Processes webhook files from the local pending queue by launching AI agent subprocesses. Manages per-repository concurrency (one agent per repo at a time, parallel across repos), file state transitions (pending → processing → completed/failed), and agent output capture.
 ## Requirements
 ### Requirement: Dispatcher Lifecycle
 The system MUST run a dispatcher component that processes webhook files from the pending queue on a scheduled interval.
