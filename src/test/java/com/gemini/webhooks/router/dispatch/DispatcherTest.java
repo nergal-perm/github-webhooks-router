@@ -1,8 +1,9 @@
 package com.gemini.webhooks.router.dispatch;
 
-import com.gemini.webhooks.router.AppConfig;
-import com.gemini.webhooks.router.storage.FileSystemRepository;
+import com.gemini.webhooks.router.FileBasedTasksConfig;
+import com.gemini.webhooks.router.storage.FileSystemTaskRepository;
 import com.gemini.webhooks.router.storage.TaskRepository;
+import com.gemini.webhooks.router.tasks.FileBasedAgentTasks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,7 +21,7 @@ class DispatcherTest {
     @TempDir
     Path tempDir;
 
-    private AppConfig config;
+    private FileBasedTasksConfig config;
     private TaskRepository repository;
     private AgentProcess agentProcess;
     private Dispatcher dispatcher;
@@ -30,8 +31,8 @@ class DispatcherTest {
         Path storageRoot = tempDir.resolve("storage");
         Path repoBaseDir = tempDir.resolve("repos");
 
-        config = new AppConfig(storageRoot, repoBaseDir);
-        repository = FileSystemRepository.create(config.pendingDir().toString());
+        config = new FileBasedTasksConfig(storageRoot, repoBaseDir);
+        repository = FileSystemTaskRepository.create(config);
 
         Files.createDirectories(config.pendingDir());
         Files.createDirectories(config.processingDir());
@@ -40,7 +41,7 @@ class DispatcherTest {
         Files.createDirectories(config.outputsDir());
 
         agentProcess = AgentProcess.createNull();
-        dispatcher = new Dispatcher(config, repository, agentProcess, Runnable::run);
+        dispatcher = new Dispatcher(config, repository, new FileBasedAgentTasks(config, repository), agentProcess, Runnable::run);
     }
 
     @Test
@@ -63,9 +64,12 @@ class DispatcherTest {
 
     @Test
     void dispatch_shouldMoveToFailedWhenAgentFails() throws IOException {
-        dispatcher = new Dispatcher(config, repository,
+        dispatcher = new Dispatcher(
+                config, repository,
+                new FileBasedAgentTasks(config, repository),
                 AgentProcess.createNull(AgentProcess.ProcessResult.failure("agent error")),
-                Runnable::run);
+                Runnable::run
+        );
 
         String validFilename = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
         Path webhookFile = config.pendingDir().resolve(validFilename);
@@ -151,9 +155,23 @@ class DispatcherTest {
     }
 
     @Test
+    void dispatch_shouldProcessSameRepoInNextCycle() throws IOException {
+        String filename1 = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
+        String filename2 = "2026-01-29T12:00:01.000Z_my-repo_def67890.json";
+        Files.writeString(config.pendingDir().resolve(filename1), "{}");
+
+        dispatcher.dispatch();
+        assertThat(Files.exists(config.completedDir().resolve(filename1))).isTrue();
+
+        Files.writeString(config.pendingDir().resolve(filename2), "{}");
+        dispatcher.dispatch();
+        assertThat(Files.exists(config.completedDir().resolve(filename2))).isTrue();
+    }
+
+    @Test
     void dispatch_shouldSkipSameRepoWhenAlreadyActive() throws IOException {
         List<Runnable> submitted = new ArrayList<>();
-        dispatcher = new Dispatcher(config, repository, agentProcess, submitted::add);
+        dispatcher = new Dispatcher(config, repository, new FileBasedAgentTasks(config, repository), agentProcess, submitted::add);
 
         String filename1 = "2026-01-29T12:00:00.000Z_same-repo_abc12345.json";
         String filename2 = "2026-01-29T12:00:01.000Z_same-repo_def67890.json";

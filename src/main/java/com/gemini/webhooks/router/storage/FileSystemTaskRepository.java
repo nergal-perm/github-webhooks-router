@@ -1,5 +1,9 @@
 package com.gemini.webhooks.router.storage;
 
+import com.gemini.webhooks.router.FileBasedTasksConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -8,31 +12,34 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class FileSystemRepository implements TaskRepository {
-    private final String folder;
+public class FileSystemTaskRepository implements TaskRepository {
+    private final static Logger logger = LoggerFactory.getLogger(FileSystemTaskRepository.class);
+    private final FileBasedTasksConfig config;
+    private final String pendingDir;
 
-    public static FileSystemRepository create(String folder) {
-        return new FileSystemRepository(folder);
+    public static FileSystemTaskRepository create(FileBasedTasksConfig config) {
+        return new FileSystemTaskRepository(config);
     }
 
-    private FileSystemRepository(String folder) {
-        this.folder = folder;
+    private FileSystemTaskRepository(FileBasedTasksConfig config) {
+        this.config = config;
+        this.pendingDir = config.pendingDir().toString();
     }
 
     @Override
-    public Path save(String filename, String content) throws IOException {
+    public Path createPendingTask(String filename, String content) throws IOException {
         ensureFolderExists();
         saveFile(filename, content);
-        return Path.of(folder, filename);
+        return Path.of(pendingDir, filename);
     }
 
     @Override
-    public List<String> list() throws IOException {
-        return list(Path.of(folder));
+    public List<String> listPending() {
+        return list(Path.of(pendingDir));
     }
 
     @Override
-    public List<String> list(Path directory) throws IOException {
+    public List<String> list(Path directory) {
         Path path = directory.toAbsolutePath();
         if (Files.notExists(path)) {
             return List.of();
@@ -42,6 +49,8 @@ public class FileSystemRepository implements TaskRepository {
                     .filter(Files::isRegularFile)
                     .map(p -> p.getFileName().toString())
                     .toList();
+        } catch (IOException e) {
+            return List.of();
         }
     }
 
@@ -60,13 +69,23 @@ public class FileSystemRepository implements TaskRepository {
         return destination;
     }
 
+    @Override
+    public void moveToFailed(String filename) {
+        try {
+            this.move(filename, config.pendingDir(), config.failedDir());
+            logger.info("Moved {} to failed directory", filename);
+        } catch (IOException e) {
+            logger.error("Failed to move file to failed directory: {}", filename, e);
+        }
+    }
+
     private void saveFile(String filename, String content) throws IOException {
-        final Path path = Path.of(folder).toAbsolutePath();
+        final Path path = Path.of(pendingDir).toAbsolutePath();
         Files.writeString(path.resolve(filename), content);
     }
 
     private void ensureFolderExists() throws IOException {
-        final Path path = Path.of(folder).toAbsolutePath();
+        final Path path = Path.of(pendingDir).toAbsolutePath();
         if (Files.notExists(path)) {
             Files.createDirectories(path);
         }

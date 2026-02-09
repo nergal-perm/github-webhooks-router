@@ -1,8 +1,10 @@
 package com.gemini.webhooks.router;
 
 import com.gemini.webhooks.router.dispatch.Dispatcher;
-import com.gemini.webhooks.router.storage.FileSystemRepository;
+import com.gemini.webhooks.router.storage.FileSystemTaskRepository;
 import com.gemini.webhooks.router.storage.TaskRepository;
+import com.gemini.webhooks.router.tasks.AgentTasks;
+import com.gemini.webhooks.router.tasks.FileBasedAgentTasks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +23,7 @@ public class Main {
         logger.info("Starting Webhooks Router Daemon...");
 
         // Initialize configuration
-        AppConfig config = AppConfig.defaults();
+        FileBasedTasksConfig config = FileBasedTasksConfig.create();
 
         // Ensure directories exist
         try {
@@ -32,8 +34,9 @@ public class Main {
         }
 
         // Initialize dispatcher
-        TaskRepository repository = FileSystemRepository.create(config.pendingDir().toString());
-        Dispatcher dispatcher = new Dispatcher(config, repository);
+        TaskRepository repository = FileSystemTaskRepository.create(config);
+        AgentTasks tasks = new FileBasedAgentTasks(config, repository);
+        Dispatcher dispatcher = new Dispatcher(config, repository, tasks);
 
         // Schedule the "Hello World" task every 60 seconds
         scheduler.scheduleAtFixedRate(() -> {
@@ -64,7 +67,7 @@ public class Main {
         }));
     }
 
-    private static void ensureDirectoriesExist(AppConfig config) throws IOException {
+    private static void ensureDirectoriesExist(FileBasedTasksConfig config) throws IOException {
         Files.createDirectories(config.pendingDir());
         Files.createDirectories(config.processingDir());
         Files.createDirectories(config.completedDir());

@@ -1,5 +1,6 @@
 package com.gemini.webhooks.router.storage;
 
+import com.gemini.webhooks.router.FileBasedTasksConfig;
 import com.yegor256.Mktmp;
 import com.yegor256.MktmpResolver;
 import org.junit.jupiter.api.Test;
@@ -16,9 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ExtendWith(MktmpResolver.class)
 class TaskRepositoryTest {
 
-    @Test
-    void should_persist_payload_to_pending_directory_with_formatted_filename() {
-    }
+
 
     @Test
     void move_shouldRelocateFileToDestinationDirectory(@Mktmp Path tempDir) throws IOException {
@@ -27,7 +26,7 @@ class TaskRepositoryTest {
         Files.createDirectories(pending);
         String filename = "2026-01-24T12:00:00.000Z_my-project_abc123.json";
         Files.writeString(pending.resolve(filename), "{}");
-        TaskRepository repository = FileSystemRepository.create(pending.toString());
+        TaskRepository repository = FileSystemTaskRepository.create(FileBasedTasksConfig.create(tempDir));
 
         Path result = repository.move(filename, pending, processing);
 
@@ -44,7 +43,7 @@ class TaskRepositoryTest {
         String filename = "webhook.json";
         String content = "{\"action\":\"opened\",\"number\":42}";
         Files.writeString(pending.resolve(filename), content);
-        TaskRepository repository = FileSystemRepository.create(pending.toString());
+        TaskRepository repository = FileSystemTaskRepository.create(FileBasedTasksConfig.create(tempDir));
 
         repository.move(filename, pending, processing);
 
@@ -58,7 +57,7 @@ class TaskRepositoryTest {
         Files.createDirectories(pending);
         String filename = "webhook.json";
         Files.writeString(pending.resolve(filename), "{}");
-        TaskRepository repository = FileSystemRepository.create(pending.toString());
+        TaskRepository repository = FileSystemTaskRepository.create(FileBasedTasksConfig.create(tempDir));
 
         repository.move(filename, pending, completed);
 
@@ -71,7 +70,7 @@ class TaskRepositoryTest {
         Path pending = tempDir.resolve("pending");
         Path processing = tempDir.resolve("processing");
         Files.createDirectories(pending);
-        TaskRepository repository = FileSystemRepository.create(pending.toString());
+        TaskRepository repository = FileSystemTaskRepository.create(FileBasedTasksConfig.create(tempDir));
 
         assertThatThrownBy(() -> repository.move("nonexistent.json", pending, processing))
                 .isInstanceOf(NoSuchFileException.class);
@@ -84,7 +83,7 @@ class TaskRepositoryTest {
         Files.createDirectories(processing);
         String filename = "webhook.json";
         Files.writeString(processing.resolve(filename), "{}");
-        TaskRepository repository = FileSystemRepository.create(processing.toString());
+        TaskRepository repository = FileSystemTaskRepository.create(FileBasedTasksConfig.create(tempDir));
 
         Path result = repository.move(filename, processing, completed);
 
@@ -100,7 +99,7 @@ class TaskRepositoryTest {
         Files.createDirectories(processing);
         String filename = "webhook.json";
         Files.writeString(processing.resolve(filename), "{}");
-        TaskRepository repository = FileSystemRepository.create(processing.toString());
+        TaskRepository repository = FileSystemTaskRepository.create(FileBasedTasksConfig.create(tempDir));
 
         Path result = repository.move(filename, processing, failed);
 

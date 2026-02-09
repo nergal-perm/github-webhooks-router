@@ -1,8 +1,10 @@
 package com.gemini.webhooks.router.dispatch;
 
-import com.gemini.webhooks.router.AppConfig;
-import com.gemini.webhooks.router.domain.WebhookFilename;
+import com.gemini.webhooks.router.FileBasedTasksConfig;
 import com.gemini.webhooks.router.storage.TaskRepository;
+import com.gemini.webhooks.router.tasks.ActiveRepos;
+import com.gemini.webhooks.router.tasks.AgentTask;
+import com.gemini.webhooks.router.tasks.AgentTasks;
 import com.gemini.webhooks.router.utils.OutputFilename;
 import com.gemini.webhooks.router.utils.WebhookParser;
 import org.slf4j.Logger;
@@ -12,113 +14,59 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class Dispatcher {
+
     private static final Logger logger = LoggerFactory.getLogger(Dispatcher.class);
 
-    private final AppConfig config;
+    private final FileBasedTasksConfig config;
     private final TaskRepository repository;
+    private final AgentTasks tasks;
     private final AgentProcess agentProcess;
-    private final Set<String> activeRepos = ConcurrentHashMap.newKeySet();
+    private final ActiveRepos activeRepos = new ActiveRepos();
     private final Executor executor;
 
-    public Dispatcher(AppConfig config, TaskRepository repository) {
-        this(config, repository, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
+    public Dispatcher(FileBasedTasksConfig config, TaskRepository repository, AgentTasks tasks) {
+        this(config, repository, tasks, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    public Dispatcher(AppConfig config, TaskRepository repository, AgentProcess agentProcess, Executor executor) {
+    public Dispatcher(FileBasedTasksConfig config, TaskRepository repository, AgentTasks tasks, AgentProcess agentProcess, Executor executor) {
         this.config = config;
         this.repository = repository;
+        this.tasks = tasks;
         this.agentProcess = agentProcess;
         this.executor = executor;
     }
 
     public void dispatch() {
-        recoverStuckWebhooks();
+        tasks.clearInvalid();
+        tasks.recoverStuck(activeRepos);
 
-        try {
-            List<String> pendingFiles = repository.list();
-
-            if (pendingFiles.isEmpty()) {
-                logger.debug("No pending webhook files to process");
-                return;
-            }
-
-            // Sort files to ensure chronological processing
-            List<String> sortedFiles = pendingFiles.stream().sorted().toList();
-            logger.info("Found {} pending webhook files", sortedFiles.size());
-
-            for (String filename : sortedFiles) {
-                // Parse filename to extract repository name
-                WebhookFilename webhookFilename;
-                try {
-                    webhookFilename = WebhookFilename.parse(filename);
-                } catch (IllegalArgumentException e) {
-                    logger.error("Failed to parse webhook filename: {}", filename, e);
-                    moveToFailed(filename);
-                    continue;
-                }
-
-                String repoName = webhookFilename.repoName();
-
-                // Check if repo is already being processed
-                if (activeRepos.contains(repoName)) {
-                    logger.debug("Repository {} is already being processed, skipping {}", repoName, filename);
-                    continue;
-                }
-
-                // Try to acquire lock for repo
-                if (activeRepos.add(repoName)) {
-                    logger.info("Dispatching webhook file: {} for repo: {}", filename, repoName);
-                    executor.execute(() -> {
-                        try {
-                            processWebhook(filename, webhookFilename);
-                        } finally {
-                            activeRepos.remove(repoName);
-                        }
-                    });
-                }
-            }
-
-        } catch (Exception e) {
-            logger.error("Error during dispatch cycle", e);
-        }
+         tasks.listPending().stream()
+                .filter(this::notForActiveRepositories)
+                .forEach(this::processTask);
     }
 
-    private void processWebhook(String filename, WebhookFilename webhookFilename) {
-        String repoName = webhookFilename.repoName();
+    private void processWebhook(AgentTask task) {
         try {
-            // Move to processing directory
-            try {
-                repository.move(filename, config.pendingDir(), config.processingDir());
-                logger.info("Moved {} to processing directory", filename);
-            } catch (IOException e) {
-                logger.error("Failed to move file to processing: {}", filename, e);
-                return;
-            }
-
             // Read webhook content
             String webhookContent;
             try {
-                Path processingFilePath = config.processingDir().resolve(filename);
+                Path processingFilePath = config.processingDir().resolve(task.toFilename());
                 webhookContent = Files.readString(processingFilePath);
             } catch (IOException e) {
-                logger.error("Failed to read webhook content from: {}", filename, e);
-                moveFromProcessingToFailed(filename);
+                logger.error("Failed to read webhook content from: {}", task.toFilename(), e);
+                moveFromProcessingToFailed(task.toFilename());
                 return;
             }
 
             // Parse issue number from webhook JSON
+            String repoName = task.repoName();
             Optional<Integer> issueNumber = WebhookParser.extractIssueNumber(webhookContent);
-            if (issueNumber.isPresent()) {
-                logger.info("Extracted issue number: {} for repo: {}", issueNumber.get(), repoName);
-            }
+            issueNumber.ifPresent(integer -> logger.info("Extracted issue number: {} for repo: {}", integer, repoName));
 
             // Generate output filename
             Instant sessionStart = Instant.now();
@@ -131,23 +79,14 @@ public class Dispatcher {
 
             // Handle result
             if (result.isSuccess()) {
-                moveFromProcessingToCompleted(filename);
+                moveFromProcessingToCompleted(task.toFilename());
             } else {
                 logger.error("Agent process failed for {}: {}", repoName, result.errorMessage());
-                moveFromProcessingToFailed(filename);
+                moveFromProcessingToFailed(task.toFilename());
             }
         } catch (Exception e) {
-            logger.error("Unexpected error processing webhook: {}", filename, e);
-            moveFromProcessingToFailed(filename);
-        }
-    }
-
-    private void moveToFailed(String filename) {
-        try {
-            repository.move(filename, config.pendingDir(), config.failedDir());
-            logger.info("Moved {} to failed directory", filename);
-        } catch (IOException e) {
-            logger.error("Failed to move file to failed directory: {}", filename, e);
+            logger.error("Unexpected error processing webhook: {}", task.toFilename(), e);
+            moveFromProcessingToFailed(task.toFilename());
         }
     }
 
@@ -169,23 +108,31 @@ public class Dispatcher {
         }
     }
 
-    private void recoverStuckWebhooks() {
-        try {
-            List<String> processingFiles = repository.list(config.processingDir());
-            for (String filename : processingFiles) {
-                // Only recover if repo is not active
-                try {
-                    WebhookFilename wf = WebhookFilename.parse(filename);
-                    if (!activeRepos.contains(wf.repoName())) {
-                        logger.warn("Recovering stuck webhook: {}", filename);
-                        repository.move(filename, config.processingDir(), config.pendingDir());
-                    }
-                } catch (Exception e) {
-                    logger.error("Failed to recover stuck webhook: {}", filename, e);
-                }
-            }
-        } catch (IOException e) {
-            logger.error("Failed to list processing directory for recovery", e);
+    private boolean notForActiveRepositories(AgentTask task) {
+        final boolean forActiveRepo = task.isForActive(activeRepos);
+        if (forActiveRepo) {
+            logger.debug("The repo {} already has active task, skipping {}", task.repoName(), task.toFilename());
         }
+        return !forActiveRepo;
+    }
+
+    private void processTask(AgentTask task) {
+        if (!activeRepos.lockRepoFor(task)) {
+            return;
+        }
+
+        logger.info("Dispatching webhook file: {} for repo: {}", task.toFilename(), task.repoName());
+
+        if (!tasks.startProcessing(task)) {
+            return;
+        }
+
+        executor.execute(() -> {
+            try {
+                processWebhook(task);
+            } finally {
+                activeRepos.unlockRepoFor(task);
+            }
+        });
     }
 }
