@@ -66,4 +66,36 @@ public class FileBasedAgentTasks implements AgentTasks {
         }
         return true;
     }
+
+    @Override
+    public java.util.Optional<String> readContent(AgentTask task) {
+        try {
+            java.nio.file.Path processingFilePath = config.processingDir().resolve(task.toFilename());
+            String content = java.nio.file.Files.readString(processingFilePath);
+            return java.util.Optional.of(content);
+        } catch (IOException e) {
+            logger.error("Failed to read webhook content from: {}", task.toFilename(), e);
+            return java.util.Optional.empty();
+        }
+    }
+
+    @Override
+    public void completeTask(AgentTask task) {
+        try {
+            tasks.move(task.toFilename(), config.processingDir(), config.completedDir());
+            logger.info("Moved {} to completed directory", task.toFilename());
+        } catch (IOException e) {
+            logger.error("Failed to move file to completed directory: {}", task.toFilename(), e);
+        }
+    }
+
+    @Override
+    public void failTask(AgentTask task) {
+        try {
+            tasks.move(task.toFilename(), config.processingDir(), config.failedDir());
+            logger.info("Moved {} to failed directory", task.toFilename());
+        } catch (IOException e) {
+            logger.error("Failed to move file to failed directory: {}", task.toFilename(), e);
+        }
+    }
 }

@@ -1,7 +1,6 @@
 package com.gemini.webhooks.router.dispatch;
 
 import com.gemini.webhooks.router.FileBasedTasksConfig;
-import com.gemini.webhooks.router.storage.TaskRepository;
 import com.gemini.webhooks.router.tasks.ActiveRepos;
 import com.gemini.webhooks.router.tasks.AgentTask;
 import com.gemini.webhooks.router.tasks.AgentTasks;
@@ -10,8 +9,6 @@ import com.gemini.webhooks.router.utils.WebhookParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
@@ -23,19 +20,17 @@ public class Dispatcher {
     private static final Logger logger = LoggerFactory.getLogger(Dispatcher.class);
 
     private final FileBasedTasksConfig config;
-    private final TaskRepository repository;
     private final AgentTasks tasks;
     private final AgentProcess agentProcess;
     private final ActiveRepos activeRepos = new ActiveRepos();
     private final Executor executor;
 
-    public Dispatcher(FileBasedTasksConfig config, TaskRepository repository, AgentTasks tasks) {
-        this(config, repository, tasks, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
+    public Dispatcher(FileBasedTasksConfig config, AgentTasks tasks) {
+        this(config, tasks, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    public Dispatcher(FileBasedTasksConfig config, TaskRepository repository, AgentTasks tasks, AgentProcess agentProcess, Executor executor) {
+    public Dispatcher(FileBasedTasksConfig config, AgentTasks tasks, AgentProcess agentProcess, Executor executor) {
         this.config = config;
-        this.repository = repository;
         this.tasks = tasks;
         this.agentProcess = agentProcess;
         this.executor = executor;
@@ -53,15 +48,12 @@ public class Dispatcher {
     private void processWebhook(AgentTask task) {
         try {
             // Read webhook content
-            String webhookContent;
-            try {
-                Path processingFilePath = config.processingDir().resolve(task.toFilename());
-                webhookContent = Files.readString(processingFilePath);
-            } catch (IOException e) {
-                logger.error("Failed to read webhook content from: {}", task.toFilename(), e);
-                moveFromProcessingToFailed(task.toFilename());
+            Optional<String> webhookContentOpt = tasks.readContent(task);
+            if (webhookContentOpt.isEmpty()) {
+                tasks.failTask(task);
                 return;
             }
+            String webhookContent = webhookContentOpt.get();
 
             // Parse issue number from webhook JSON
             String repoName = task.repoName();
@@ -79,32 +71,14 @@ public class Dispatcher {
 
             // Handle result
             if (result.isSuccess()) {
-                moveFromProcessingToCompleted(task.toFilename());
+                tasks.completeTask(task);
             } else {
                 logger.error("Agent process failed for {}: {}", repoName, result.errorMessage());
-                moveFromProcessingToFailed(task.toFilename());
+                tasks.failTask(task);
             }
         } catch (Exception e) {
             logger.error("Unexpected error processing webhook: {}", task.toFilename(), e);
-            moveFromProcessingToFailed(task.toFilename());
-        }
-    }
-
-    private void moveFromProcessingToCompleted(String filename) {
-        try {
-            repository.move(filename, config.processingDir(), config.completedDir());
-            logger.info("Moved {} to completed directory", filename);
-        } catch (IOException e) {
-            logger.error("Failed to move file to completed directory: {}", filename, e);
-        }
-    }
-
-    private void moveFromProcessingToFailed(String filename) {
-        try {
-            repository.move(filename, config.processingDir(), config.failedDir());
-            logger.info("Moved {} to failed directory", filename);
-        } catch (IOException e) {
-            logger.error("Failed to move file to failed directory: {}", filename, e);
+            tasks.failTask(task);
         }
     }
 

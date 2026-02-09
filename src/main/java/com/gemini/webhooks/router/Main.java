@@ -36,7 +36,7 @@ public class Main {
         // Initialize dispatcher
         TaskRepository repository = FileSystemTaskRepository.create(config);
         AgentTasks tasks = new FileBasedAgentTasks(config, repository);
-        Dispatcher dispatcher = new Dispatcher(config, repository, tasks);
+        Dispatcher dispatcher = new Dispatcher(config, tasks);
 
         // Schedule the "Hello World" task every 60 seconds
         scheduler.scheduleAtFixedRate(() -> {
