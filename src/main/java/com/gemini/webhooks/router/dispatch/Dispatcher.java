@@ -1,16 +1,14 @@
 package com.gemini.webhooks.router.dispatch;
 
 import com.gemini.webhooks.router.FileBasedTasksConfig;
+import com.gemini.webhooks.router.domain.ProcessableWebhook;
 import com.gemini.webhooks.router.tasks.ActiveRepos;
 import com.gemini.webhooks.router.tasks.AgentTask;
 import com.gemini.webhooks.router.tasks.AgentTasks;
-import com.gemini.webhooks.router.utils.OutputFilename;
-import com.gemini.webhooks.router.utils.WebhookParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -47,33 +45,25 @@ public class Dispatcher {
 
     private void processWebhook(AgentTask task) {
         try {
-            // Read webhook content
-            Optional<String> webhookContentOpt = tasks.readContent(task);
-            if (webhookContentOpt.isEmpty()) {
+            // Prepare webhook for processing
+            Optional<ProcessableWebhook> webhookOpt = tasks.prepareForProcessing(task, config.outputsDir());
+            if (webhookOpt.isEmpty()) {
                 tasks.failTask(task);
                 return;
             }
-            String webhookContent = webhookContentOpt.get();
 
-            // Parse issue number from webhook JSON
-            String repoName = task.repoName();
-            Optional<Integer> issueNumber = WebhookParser.extractIssueNumber(webhookContent);
-            issueNumber.ifPresent(integer -> logger.info("Extracted issue number: {} for repo: {}", integer, repoName));
-
-            // Generate output filename
-            Instant sessionStart = Instant.now();
-            String outputFilename = OutputFilename.generate(repoName, issueNumber, sessionStart);
-            Path outputFile = config.outputsDir().resolve(outputFilename);
-            logger.info("Agent output for {} will be written to: {}", repoName, outputFile);
+            ProcessableWebhook webhook = webhookOpt.get();
+            Path outputFile = webhook.outputFile();
+            logger.info("Agent output for {} will be written to: {}", webhook.repoName(), outputFile);
 
             // Execute agent process
-            AgentProcess.ProcessResult result = agentProcess.execute(repoName, webhookContent, outputFile);
+            AgentProcess.ProcessResult result = agentProcess.execute(webhook.repoName(), webhook.webhookContent(), outputFile);
 
             // Handle result
             if (result.isSuccess()) {
                 tasks.completeTask(task);
             } else {
-                logger.error("Agent process failed for {}: {}", repoName, result.errorMessage());
+                logger.error("Agent process failed for {}: {}", webhook.repoName(), result.errorMessage());
                 tasks.failTask(task);
             }
         } catch (Exception e) {

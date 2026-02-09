@@ -2,13 +2,17 @@ package com.gemini.webhooks.router.tasks;
 
 import com.gemini.webhooks.router.FileBasedTasksConfig;
 import com.gemini.webhooks.router.domain.InvalidAgentTask;
+import com.gemini.webhooks.router.domain.ProcessableWebhook;
 import com.gemini.webhooks.router.domain.WebhookFilename;
 import com.gemini.webhooks.router.storage.TaskRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 public class FileBasedAgentTasks implements AgentTasks {
 
@@ -68,15 +72,22 @@ public class FileBasedAgentTasks implements AgentTasks {
     }
 
     @Override
-    public java.util.Optional<String> readContent(AgentTask task) {
+    public Optional<String> readContent(AgentTask task) {
         try {
-            java.nio.file.Path processingFilePath = config.processingDir().resolve(task.toFilename());
-            String content = java.nio.file.Files.readString(processingFilePath);
-            return java.util.Optional.of(content);
+            Path processingFilePath = config.processingDir().resolve(task.toFilename());
+            String content = Files.readString(processingFilePath);
+            return Optional.of(content);
         } catch (IOException e) {
             logger.error("Failed to read webhook content from: {}", task.toFilename(), e);
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
+    }
+
+    @Override
+    public Optional<ProcessableWebhook> prepareForProcessing(AgentTask task, Path outputDir) {
+        return readContent(task).map(content ->
+            new ProcessableWebhook(task, content, outputDir)
+        );
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.gemini.webhooks.router.tasks;
 
-import java.io.IOException;
+import com.gemini.webhooks.router.domain.ProcessableWebhook;
+
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +16,8 @@ public interface AgentTasks {
     boolean startProcessing(AgentTask task);
 
     Optional<String> readContent(AgentTask task);
+
+    Optional<ProcessableWebhook> prepareForProcessing(AgentTask task, Path outputDir);
 
     void completeTask(AgentTask task);
 
