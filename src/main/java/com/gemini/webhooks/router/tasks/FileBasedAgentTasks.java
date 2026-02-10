@@ -32,7 +32,7 @@ public class FileBasedAgentTasks implements AgentTasks {
             for (String filename : processingFiles) {
                 try {
                     AgentTask task = WebhookFilename.parse(filename);
-                    if (!repos.contains(task.repoName())) {
+                    if (!repos.isTaken(task.repoName())) {
                         logger.warn("Recovering stuck webhook: {}", filename);
                         tasks.move(filename, config.processingDir(), config.pendingDir());
                     }

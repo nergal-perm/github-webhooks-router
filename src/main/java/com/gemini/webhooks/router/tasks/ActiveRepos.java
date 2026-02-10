@@ -6,15 +6,15 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ActiveRepos {
     private final Set<String> repoNames = ConcurrentHashMap.newKeySet();
 
-    public boolean contains(String repoName) {
+    public boolean isTaken(String repoName) {
         return repoNames.contains(repoName);
     }
 
-    public boolean lockRepoFor(AgentTask task) {
+    public boolean takeFor(AgentTask task) {
         return repoNames.add(task.repoName());
     }
 
-    public void unlockRepoFor(AgentTask task) {
+    public void releaseFor(AgentTask task) {
         repoNames.remove(task.repoName());
     }
 }

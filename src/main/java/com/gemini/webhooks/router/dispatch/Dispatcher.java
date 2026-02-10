@@ -70,15 +70,15 @@ public class Dispatcher {
     }
 
     private boolean notForActiveRepositories(AgentTask task) {
-        final boolean forActiveRepo = activeRepos.contains(task.repoName());
-        if (forActiveRepo) {
+        final boolean repoIsTaken = activeRepos.isTaken(task.repoName());
+        if (repoIsTaken) {
             logger.debug("The repo {} already has active task, skipping {}", task.repoName(), task.toFilename());
         }
-        return !forActiveRepo;
+        return !repoIsTaken;
     }
 
     private void processTask(AgentTask task) {
-        if (!activeRepos.lockRepoFor(task)) {
+        if (!activeRepos.takeFor(task)) {
             return;
         }
 
@@ -92,7 +92,7 @@ public class Dispatcher {
             try {
                 processWebhook(task);
             } finally {
-                activeRepos.unlockRepoFor(task);
+                activeRepos.releaseFor(task);
             }
         });
     }
