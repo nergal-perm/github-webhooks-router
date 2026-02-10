@@ -22,10 +22,8 @@ public class Main {
     public static void main(String[] args) {
         logger.info("Starting Webhooks Router Daemon...");
 
-        // Initialize configuration
         FileBasedTasksConfig config = FileBasedTasksConfig.create();
 
-        // Ensure directories exist
         try {
             ensureDirectoriesExist(config);
         } catch (IOException e) {
@@ -33,17 +31,14 @@ public class Main {
             System.exit(1);
         }
 
-        // Initialize dispatcher
         TaskRepository repository = FileSystemTaskRepository.create(config);
         AgentTasks tasks = new FileBasedAgentTasks(config, repository);
         Dispatcher dispatcher = new Dispatcher(config, tasks);
 
-        // Schedule the "Hello World" task every 60 seconds
         scheduler.scheduleAtFixedRate(() -> {
             logger.info("Hello, world. The time is {}", Instant.now());
         }, 0, 60, TimeUnit.SECONDS);
 
-        // Schedule dispatcher every 60 seconds
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 dispatcher.dispatch();
@@ -52,7 +47,6 @@ public class Main {
             }
         }, 10, 60, TimeUnit.SECONDS);
 
-        // Add shutdown hook for graceful shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("Shutting down Webhooks Router Daemon...");
             scheduler.shutdown();
