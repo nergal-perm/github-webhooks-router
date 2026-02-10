@@ -71,8 +71,7 @@ public class FileBasedAgentTasks implements AgentTasks {
         return true;
     }
 
-    @Override
-    public Optional<String> readContent(AgentTask task) {
+    private Optional<String> readContent(AgentTask task) {
         try {
             Path processingFilePath = config.processingDir().resolve(task.toFilename());
             String content = Files.readString(processingFilePath);

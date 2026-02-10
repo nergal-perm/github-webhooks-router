@@ -15,8 +15,6 @@ public interface AgentTasks {
 
     boolean startProcessing(AgentTask task);
 
-    Optional<String> readContent(AgentTask task);
-
     Optional<ProcessableWebhook> prepareForProcessing(AgentTask task, Path outputDir);
 
     void completeTask(AgentTask task);
