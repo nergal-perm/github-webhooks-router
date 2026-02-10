@@ -8,19 +8,17 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
 
-/**
- * Represents a webhook task with its content, ready for processing.
- * Knows how to extract processing information (repo name, webhook content, output path).
- */
 public class ProcessableWebhook {
     private final AgentTask task;
     private final String webhookContent;
-    private final Path outputDir;
+    private final Path outputFile;
 
     public ProcessableWebhook(AgentTask task, String webhookContent, Path outputDir) {
         this.task = task;
         this.webhookContent = webhookContent;
-        this.outputDir = outputDir;
+        Optional<Integer> issueNumber = WebhookParser.extractIssueNumber(webhookContent);
+        String outputFilename = OutputFilename.generate(task.repoName(), issueNumber, Instant.now());
+        this.outputFile = outputDir.resolve(outputFilename);
     }
 
     public AgentTask task() {
@@ -36,9 +34,6 @@ public class ProcessableWebhook {
     }
 
     public Path outputFile() {
-        Optional<Integer> issueNumber = WebhookParser.extractIssueNumber(webhookContent);
-        Instant sessionStart = Instant.now();
-        String outputFilename = OutputFilename.generate(task.repoName(), issueNumber, sessionStart);
-        return outputDir.resolve(outputFilename);
+        return outputFile;
     }
 }
