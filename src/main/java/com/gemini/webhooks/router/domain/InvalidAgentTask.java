@@ -4,7 +4,11 @@ import com.gemini.webhooks.router.tasks.AgentTask;
 
 public class InvalidAgentTask implements AgentTask {
 
-    public InvalidAgentTask(String message) {}
+    private final String message;
+
+    public InvalidAgentTask(String message) {
+        this.message = message;
+    }
 
     @Override
     public String repoName() {
@@ -13,6 +17,6 @@ public class InvalidAgentTask implements AgentTask {
 
     @Override
     public String toFilename() {
-        return "";
+        return message;
     }
 }
