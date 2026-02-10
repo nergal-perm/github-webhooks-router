@@ -41,7 +41,7 @@ class DispatcherTest {
         Files.createDirectories(config.outputsDir());
 
         agentProcess = AgentProcess.createNull();
-        dispatcher = new Dispatcher(config, new FileBasedAgentTasks(config, repository), agentProcess, Runnable::run);
+        dispatcher = new Dispatcher(config.outputsDir(), new FileBasedAgentTasks(config, repository), agentProcess, Runnable::run);
     }
 
     @Test
@@ -65,7 +65,7 @@ class DispatcherTest {
     @Test
     void dispatch_shouldMoveToFailedWhenAgentFails() throws IOException {
         dispatcher = new Dispatcher(
-                config,
+                config.outputsDir(),
                 new FileBasedAgentTasks(config, repository),
                 AgentProcess.createNull(AgentProcess.ProcessResult.failure("agent error")),
                 Runnable::run
@@ -171,7 +171,7 @@ class DispatcherTest {
     @Test
     void dispatch_shouldSkipSameRepoWhenAlreadyActive() throws IOException {
         List<Runnable> submitted = new ArrayList<>();
-        dispatcher = new Dispatcher(config, new FileBasedAgentTasks(config, repository), agentProcess, submitted::add);
+        dispatcher = new Dispatcher(config.outputsDir(), new FileBasedAgentTasks(config, repository), agentProcess, submitted::add);
 
         String filename1 = "2026-01-29T12:00:00.000Z_same-repo_abc12345.json";
         String filename2 = "2026-01-29T12:00:01.000Z_same-repo_def67890.json";

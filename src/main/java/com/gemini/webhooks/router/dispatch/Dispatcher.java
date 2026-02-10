@@ -17,18 +17,18 @@ public class Dispatcher {
 
     private static final Logger logger = LoggerFactory.getLogger(Dispatcher.class);
 
-    private final FileBasedTasksConfig config;
+    private final Path outputsDir;
     private final AgentTasks tasks;
     private final AgentProcess agentProcess;
     private final ActiveRepos activeRepos = new ActiveRepos();
     private final Executor executor;
 
     public Dispatcher(FileBasedTasksConfig config, AgentTasks tasks) {
-        this(config, tasks, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
+        this(config.outputsDir(), tasks, AgentProcess.create(config.repoBaseDir()), Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    public Dispatcher(FileBasedTasksConfig config, AgentTasks tasks, AgentProcess agentProcess, Executor executor) {
-        this.config = config;
+    public Dispatcher(Path outputsDir, AgentTasks tasks, AgentProcess agentProcess, Executor executor) {
+        this.outputsDir = outputsDir;
         this.tasks = tasks;
         this.agentProcess = agentProcess;
         this.executor = executor;
@@ -46,7 +46,7 @@ public class Dispatcher {
     private void processWebhook(AgentTask task) {
         try {
             // Prepare webhook for processing
-            Optional<ProcessableWebhook> webhookOpt = tasks.prepareForProcessing(task, config.outputsDir());
+            Optional<ProcessableWebhook> webhookOpt = tasks.prepareForProcessing(task, outputsDir);
             if (webhookOpt.isEmpty()) {
                 tasks.failTask(task);
                 return;
