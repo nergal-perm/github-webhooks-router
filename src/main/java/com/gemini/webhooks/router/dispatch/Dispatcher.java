@@ -45,7 +45,6 @@ public class Dispatcher {
 
     private void processWebhook(AgentTask task) {
         try {
-            // Prepare webhook for processing
             Optional<ProcessableWebhook> webhookOpt = tasks.prepareForProcessing(task, outputsDir);
             if (webhookOpt.isEmpty()) {
                 tasks.failTask(task);
@@ -56,10 +55,8 @@ public class Dispatcher {
             Path outputFile = webhook.outputFile();
             logger.info("Agent output for {} will be written to: {}", webhook.repoName(), outputFile);
 
-            // Execute agent process
             AgentProcess.ProcessResult result = agentProcess.execute(webhook.repoName(), webhook.webhookContent(), outputFile);
 
-            // Handle result
             if (result.isSuccess()) {
                 tasks.completeTask(task);
             } else {
