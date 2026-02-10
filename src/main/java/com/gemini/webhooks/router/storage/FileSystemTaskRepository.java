@@ -35,23 +35,12 @@ public class FileSystemTaskRepository implements TaskRepository {
 
     @Override
     public List<String> listPending() {
-        return list(pendingDir);
+        return listDirectory(pendingDir);
     }
 
     @Override
-    public List<String> list(Path directory) {
-        Path path = directory.toAbsolutePath();
-        if (Files.notExists(path)) {
-            return List.of();
-        }
-        try (Stream<Path> paths = Files.list(path)) {
-            return paths
-                    .filter(Files::isRegularFile)
-                    .map(p -> p.getFileName().toString())
-                    .toList();
-        } catch (IOException e) {
-            return List.of();
-        }
+    public List<String> listProcessing() {
+        return listDirectory(config.processingDir());
     }
 
     @Override
@@ -69,13 +58,18 @@ public class FileSystemTaskRepository implements TaskRepository {
         return destination;
     }
 
-    @Override
-    public void moveToFailed(String filename) {
-        try {
-            this.move(filename, config.pendingDir(), config.failedDir());
-            logger.info("Moved {} to failed directory", filename);
+    private List<String> listDirectory(Path directory) {
+        Path path = directory.toAbsolutePath();
+        if (Files.notExists(path)) {
+            return List.of();
+        }
+        try (Stream<Path> paths = Files.list(path)) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .map(p -> p.getFileName().toString())
+                    .toList();
         } catch (IOException e) {
-            logger.error("Failed to move file to failed directory: {}", filename, e);
+            return List.of();
         }
     }
 

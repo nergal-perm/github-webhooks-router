@@ -28,7 +28,7 @@ public class FileBasedAgentTasks implements AgentTasks {
     @Override
     public void recoverStuck(ActiveRepos repos) {
         try {
-            List<String> processingFiles = tasks.list(config.processingDir());
+            List<String> processingFiles = tasks.listProcessing();
             for (String filename : processingFiles) {
                 try {
                     AgentTask task = WebhookFilename.parse(filename);
@@ -55,8 +55,17 @@ public class FileBasedAgentTasks implements AgentTasks {
     @Override
     public void clearInvalid() {
         tasks.listPending().stream()
-                .filter( filename -> WebhookFilename.parse(filename) instanceof InvalidAgentTask)
-                .forEach(tasks::moveToFailed);
+                .filter(filename -> WebhookFilename.parse(filename) instanceof InvalidAgentTask)
+                .forEach(this::moveToFailed);
+    }
+
+    private void moveToFailed(String filename) {
+        try {
+            tasks.move(filename, config.pendingDir(), config.failedDir());
+            logger.info("Moved {} to failed directory", filename);
+        } catch (IOException e) {
+            logger.error("Failed to move invalid webhook to failed: {}", filename, e);
+        }
     }
 
     @Override
