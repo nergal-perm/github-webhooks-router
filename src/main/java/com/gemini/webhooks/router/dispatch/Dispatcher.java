@@ -73,7 +73,7 @@ public class Dispatcher {
     }
 
     private boolean notForActiveRepositories(AgentTask task) {
-        final boolean forActiveRepo = task.isForActive(activeRepos);
+        final boolean forActiveRepo = activeRepos.contains(task.repoName());
         if (forActiveRepo) {
             logger.debug("The repo {} already has active task, skipping {}", task.repoName(), task.toFilename());
         }

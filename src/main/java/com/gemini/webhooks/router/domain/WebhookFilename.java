@@ -1,6 +1,5 @@
 package com.gemini.webhooks.router.domain;
 
-import com.gemini.webhooks.router.tasks.ActiveRepos;
 import com.gemini.webhooks.router.tasks.AgentTask;
 
 import java.time.Instant;
@@ -108,8 +107,4 @@ public final class WebhookFilename implements AgentTask {
                "uniqueId=" + uniqueId + ']';
     }
 
-    @Override
-    public boolean isForActive(ActiveRepos repos) {
-        return repos.contains(this.repoName);
-    }
 }
