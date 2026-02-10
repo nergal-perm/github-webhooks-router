@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 public class FileSystemTaskRepository implements TaskRepository {
     private final static Logger logger = LoggerFactory.getLogger(FileSystemTaskRepository.class);
     private final FileBasedTasksConfig config;
-    private final String pendingDir;
+    private final Path pendingDir;
 
     public static FileSystemTaskRepository create(FileBasedTasksConfig config) {
         return new FileSystemTaskRepository(config);
@@ -23,19 +23,19 @@ public class FileSystemTaskRepository implements TaskRepository {
 
     private FileSystemTaskRepository(FileBasedTasksConfig config) {
         this.config = config;
-        this.pendingDir = config.pendingDir().toString();
+        this.pendingDir = config.pendingDir();
     }
 
     @Override
     public Path createPendingTask(String filename, String content) throws IOException {
         ensureFolderExists();
         saveFile(filename, content);
-        return Path.of(pendingDir, filename);
+        return pendingDir.resolve(filename);
     }
 
     @Override
     public List<String> listPending() {
-        return list(Path.of(pendingDir));
+        return list(pendingDir);
     }
 
     @Override
@@ -80,12 +80,11 @@ public class FileSystemTaskRepository implements TaskRepository {
     }
 
     private void saveFile(String filename, String content) throws IOException {
-        final Path path = Path.of(pendingDir).toAbsolutePath();
-        Files.writeString(path.resolve(filename), content);
+        Files.writeString(pendingDir.toAbsolutePath().resolve(filename), content);
     }
 
     private void ensureFolderExists() throws IOException {
-        final Path path = Path.of(pendingDir).toAbsolutePath();
+        Path path = pendingDir.toAbsolutePath();
         if (Files.notExists(path)) {
             Files.createDirectories(path);
         }
