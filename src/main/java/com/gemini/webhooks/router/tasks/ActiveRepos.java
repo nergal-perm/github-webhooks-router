@@ -4,17 +4,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ActiveRepos {
-    private final Set<String> activeRepos = ConcurrentHashMap.newKeySet();
+    private final Set<String> repoNames = ConcurrentHashMap.newKeySet();
 
     public boolean contains(String repoName) {
-        return this.activeRepos.contains(repoName);
+        return repoNames.contains(repoName);
     }
 
     public boolean lockRepoFor(AgentTask task) {
-        return activeRepos.add(task.repoName());
+        return repoNames.add(task.repoName());
     }
 
     public void unlockRepoFor(AgentTask task) {
-        activeRepos.remove(task.repoName());
+        repoNames.remove(task.repoName());
     }
 }
