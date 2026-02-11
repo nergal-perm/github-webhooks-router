@@ -11,17 +11,13 @@ class ProcessableWebhookTest {
 
     @Test
     void outputFile_shouldIncludeIssueNumberWhenPresent() {
-        String webhookContent = """
-                {
-                    "issue": {
-                        "number": 42
-                    }
-                }
-                """;
+        WebhookPayload payload = new WebhookPayload("""
+                {"issue": {"number": 42}}
+                """);
         AgentTask task = WebhookFilename.create("test-repo");
         Path outputDir = Path.of("/tmp/outputs");
 
-        ProcessableWebhook webhook = new ProcessableWebhook(task, webhookContent, outputDir);
+        ProcessableWebhook webhook = new ProcessableWebhook(task, payload, outputDir);
 
         Path outputFile = webhook.outputFile();
         assertThat(outputFile.getFileName().toString())
@@ -31,15 +27,13 @@ class ProcessableWebhookTest {
 
     @Test
     void outputFile_shouldExcludeIssueNumberWhenAbsent() {
-        String webhookContent = """
-                {
-                    "ref": "refs/heads/main"
-                }
-                """;
+        WebhookPayload payload = new WebhookPayload("""
+                {"ref": "refs/heads/main"}
+                """);
         AgentTask task = WebhookFilename.create("test-repo");
         Path outputDir = Path.of("/tmp/outputs");
 
-        ProcessableWebhook webhook = new ProcessableWebhook(task, webhookContent, outputDir);
+        ProcessableWebhook webhook = new ProcessableWebhook(task, payload, outputDir);
 
         Path outputFile = webhook.outputFile();
         assertThat(outputFile.getFileName().toString())
@@ -51,17 +45,17 @@ class ProcessableWebhookTest {
     @Test
     void repoName_shouldReturnTaskRepoName() {
         AgentTask task = WebhookFilename.create("my-repo");
-        ProcessableWebhook webhook = new ProcessableWebhook(task, "{}", Path.of("/tmp"));
+        ProcessableWebhook webhook = new ProcessableWebhook(task, new WebhookPayload("{}"), Path.of("/tmp"));
 
         assertThat(webhook.repoName()).isEqualTo("my-repo");
     }
 
     @Test
-    void webhookContent_shouldReturnContent() {
-        String content = "{\"test\": \"data\"}";
+    void webhookContent_shouldReturnRawJson() {
+        String json = "{\"test\": \"data\"}";
         AgentTask task = WebhookFilename.create("repo");
-        ProcessableWebhook webhook = new ProcessableWebhook(task, content, Path.of("/tmp"));
+        ProcessableWebhook webhook = new ProcessableWebhook(task, new WebhookPayload(json), Path.of("/tmp"));
 
-        assertThat(webhook.webhookContent()).isEqualTo(content);
+        assertThat(webhook.webhookContent()).isEqualTo(json);
     }
 }

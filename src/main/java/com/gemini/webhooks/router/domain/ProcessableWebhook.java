@@ -2,27 +2,20 @@ package com.gemini.webhooks.router.domain;
 
 import com.gemini.webhooks.router.tasks.AgentTask;
 import com.gemini.webhooks.router.utils.OutputFilename;
-import com.gemini.webhooks.router.utils.WebhookParser;
 
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Optional;
 
 public class ProcessableWebhook {
     private final AgentTask task;
-    private final String webhookContent;
+    private final WebhookPayload payload;
     private final Path outputFile;
 
-    public ProcessableWebhook(AgentTask task, String webhookContent, Path outputDir) {
+    public ProcessableWebhook(AgentTask task, WebhookPayload payload, Path outputDir) {
         this.task = task;
-        this.webhookContent = webhookContent;
-        Optional<Integer> issueNumber = WebhookParser.extractIssueNumber(webhookContent);
-        String outputFilename = OutputFilename.generate(task.repoName(), issueNumber, Instant.now());
+        this.payload = payload;
+        String outputFilename = OutputFilename.generate(task.repoName(), payload.issueNumber(), Instant.now());
         this.outputFile = outputDir.resolve(outputFilename);
-    }
-
-    public AgentTask task() {
-        return task;
     }
 
     public String repoName() {
@@ -30,7 +23,7 @@ public class ProcessableWebhook {
     }
 
     public String webhookContent() {
-        return webhookContent;
+        return payload.rawJson();
     }
 
     public Path outputFile() {

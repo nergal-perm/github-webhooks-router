@@ -3,8 +3,8 @@ package com.gemini.webhooks.router.tasks;
 import com.gemini.webhooks.router.FileBasedTasksConfig;
 import com.gemini.webhooks.router.domain.ProcessableWebhook;
 import com.gemini.webhooks.router.domain.WebhookFilename;
+import com.gemini.webhooks.router.domain.WebhookPayload;
 import com.gemini.webhooks.router.storage.TaskRepository;
-import com.gemini.webhooks.router.utils.WebhookParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,10 +73,10 @@ public class FileBasedAgentTasks implements AgentTasks {
         tasks.listPending().forEach(filename -> {
             try {
                 String content = Files.readString(config.pendingDir().resolve(filename));
-                String eventType = WebhookParser.extractEventType(content);
-                if (!"issues.opened".equals(eventType)) {
+                WebhookPayload payload = new WebhookPayload(content);
+                if (!payload.isDispatchable()) {
                     tasks.move(filename, config.pendingDir(), config.skippedDir());
-                    logger.info("Skipped webhook {} with event type: {}", filename, eventType);
+                    logger.info("Skipped webhook {} with event type: {}", filename, payload.eventType());
                 }
             } catch (IOException e) {
                 logger.error("Failed to check event type for: {}", filename, e);
@@ -110,7 +110,7 @@ public class FileBasedAgentTasks implements AgentTasks {
     @Override
     public Optional<ProcessableWebhook> prepareForProcessing(AgentTask task, Path outputDir) {
         return readContent(task).map(content ->
-            new ProcessableWebhook(task, content, outputDir)
+            new ProcessableWebhook(task, new WebhookPayload(content), outputDir)
         );
     }
 

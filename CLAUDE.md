@@ -16,3 +16,7 @@ Use `@/openspec/AGENTS.md` to learn:
 Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
+
+# Object-Oriented Design
+
+Always adhere to object-oriented design heuristics (use the `oo-design-heuristics` skill when reviewing or designing classes). Apply Riel's heuristics covering encapsulation, cohesion, coupling, inheritance, and class relationships.
