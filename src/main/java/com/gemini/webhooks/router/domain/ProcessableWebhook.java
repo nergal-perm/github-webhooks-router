@@ -1,12 +1,19 @@
 package com.gemini.webhooks.router.domain;
 
 import com.gemini.webhooks.router.tasks.AgentTask;
-import com.gemini.webhooks.router.utils.OutputFilename;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 public class ProcessableWebhook {
+
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+            .withZone(ZoneOffset.UTC);
+
     private final AgentTask task;
     private final WebhookPayload payload;
     private final Path outputFile;
@@ -14,8 +21,7 @@ public class ProcessableWebhook {
     public ProcessableWebhook(AgentTask task, WebhookPayload payload, Path outputDir) {
         this.task = task;
         this.payload = payload;
-        String outputFilename = OutputFilename.generate(task.repoName(), payload.issueNumber(), Instant.now());
-        this.outputFile = outputDir.resolve(outputFilename);
+        this.outputFile = outputDir.resolve(outputFilename(task.repoName(), payload.issueNumber(), Instant.now()));
     }
 
     public String repoName() {
@@ -28,5 +34,12 @@ public class ProcessableWebhook {
 
     public Path outputFile() {
         return outputFile;
+    }
+
+    private static String outputFilename(String repoName, Optional<Integer> issueNumber, Instant timestamp) {
+        String ts = FORMATTER.format(timestamp);
+        return issueNumber
+                .map(n -> "%s_issue-%d_%s.txt".formatted(repoName, n, ts))
+                .orElse("%s_%s.txt".formatted(repoName, ts));
     }
 }
