@@ -135,6 +135,20 @@ class WebhookFilenameTest {
     }
 
     @Test
+    void parse_validFilename_isValid() {
+        AgentTask task = WebhookFilename.parse("2026-01-24T12:00:00.000Z_my-project_a1b2c3d4.json");
+
+        assertThat(task.isValid()).isTrue();
+    }
+
+    @Test
+    void parse_invalidFilename_isNotValid() {
+        AgentTask task = WebhookFilename.parse("invalid-format.json");
+
+        assertThat(task.isValid()).isFalse();
+    }
+
+    @Test
     void parse_invalidFilename_toFilenameReturnsOriginalFilename() {
         AgentTask task = WebhookFilename.parse("invalid-format.json");
 

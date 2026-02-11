@@ -22,6 +22,11 @@ public class InvalidAgentTask implements AgentTask {
         return filename;
     }
 
+    @Override
+    public boolean isValid() {
+        return false;
+    }
+
     public String reason() {
         return reason;
     }

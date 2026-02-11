@@ -5,4 +5,8 @@ public interface AgentTask {
     String repoName();
 
     String toFilename();
+
+    default boolean isValid() {
+        return true;
+    }
 }

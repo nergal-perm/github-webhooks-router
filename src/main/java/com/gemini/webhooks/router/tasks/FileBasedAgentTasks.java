@@ -1,7 +1,6 @@
 package com.gemini.webhooks.router.tasks;
 
 import com.gemini.webhooks.router.FileBasedTasksConfig;
-import com.gemini.webhooks.router.domain.InvalidAgentTask;
 import com.gemini.webhooks.router.domain.ProcessableWebhook;
 import com.gemini.webhooks.router.domain.WebhookFilename;
 import com.gemini.webhooks.router.storage.TaskRepository;
@@ -56,7 +55,7 @@ public class FileBasedAgentTasks implements AgentTasks {
     @Override
     public void clearInvalid() {
         tasks.listPending().stream()
-                .filter(filename -> WebhookFilename.parse(filename) instanceof InvalidAgentTask)
+                .filter(filename -> !WebhookFilename.parse(filename).isValid())
                 .forEach(this::moveToFailed);
     }
 
