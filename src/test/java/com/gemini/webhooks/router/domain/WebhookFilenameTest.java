@@ -1,5 +1,6 @@
 package com.gemini.webhooks.router.domain;
 
+import com.gemini.webhooks.router.tasks.AgentTask;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -131,6 +132,13 @@ class WebhookFilenameTest {
     void parse_shouldRejectInvalidUniqueIdLength() {
         var parsed = WebhookFilename.parse("2026-01-24T12:00:00.000Z_repo_abc.json");
         assertThat(parsed).isInstanceOf(InvalidAgentTask.class);
+    }
+
+    @Test
+    void parse_invalidFilename_toFilenameReturnsOriginalFilename() {
+        AgentTask task = WebhookFilename.parse("invalid-format.json");
+
+        assertThat(task.toFilename()).isEqualTo("invalid-format.json");
     }
 
     @Test

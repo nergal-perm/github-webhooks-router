@@ -4,10 +4,12 @@ import com.gemini.webhooks.router.tasks.AgentTask;
 
 public class InvalidAgentTask implements AgentTask {
 
-    private final String message;
+    private final String filename;
+    private final String reason;
 
-    public InvalidAgentTask(String message) {
-        this.message = message;
+    public InvalidAgentTask(String filename, String reason) {
+        this.filename = filename;
+        this.reason = reason;
     }
 
     @Override
@@ -17,6 +19,10 @@ public class InvalidAgentTask implements AgentTask {
 
     @Override
     public String toFilename() {
-        return message;
+        return filename;
+    }
+
+    public String reason() {
+        return reason;
     }
 }

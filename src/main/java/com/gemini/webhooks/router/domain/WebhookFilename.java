@@ -44,7 +44,7 @@ public final class WebhookFilename implements AgentTask {
     public static AgentTask parse(String filename) {
         Matcher matcher = FILENAME_PATTERN.matcher(filename);
         if (!matcher.matches()) {
-            return new InvalidAgentTask("Filename does not match expected pattern: " + filename);
+            return new InvalidAgentTask(filename, "Filename does not match expected pattern: " + filename);
         }
 
         String timestampStr = matcher.group(1);
@@ -55,7 +55,7 @@ public final class WebhookFilename implements AgentTask {
         try {
             timestamp = TIMESTAMP_FORMAT.parse(timestampStr, Instant::from);
         } catch (DateTimeParseException e) {
-            return new InvalidAgentTask("Invalid timestamp format in filename: " + filename);
+            return new InvalidAgentTask(filename, "Invalid timestamp format in filename: " + filename);
         }
 
         return new WebhookFilename(timestamp, repoName, uniqueId);
