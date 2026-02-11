@@ -18,6 +18,27 @@ public class WebhookParser {
      * @param webhookJson The raw webhook JSON content
      * @return Optional containing the issue number if found, empty otherwise
      */
+    public static String extractEventType(String webhookJson) {
+        try {
+            JsonNode root = objectMapper.readTree(webhookJson);
+            String action = root.has("action") ? root.get("action").asText() : null;
+
+            if (root.has("issue") && action != null) {
+                return "issues." + action;
+            }
+            if (root.has("pull_request") && action != null) {
+                return "pull_request." + action;
+            }
+            if (root.has("ref") && root.has("commits")) {
+                return "push";
+            }
+            return "unknown";
+        } catch (Exception e) {
+            logger.warn("Failed to parse webhook JSON for event type", e);
+            return "unknown";
+        }
+    }
+
     public static Optional<Integer> extractIssueNumber(String webhookJson) {
         try {
             JsonNode root = objectMapper.readTree(webhookJson);

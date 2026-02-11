@@ -39,6 +39,7 @@ class DispatcherTest {
         Files.createDirectories(config.completedDir());
         Files.createDirectories(config.failedDir());
         Files.createDirectories(config.outputsDir());
+        Files.createDirectories(config.skippedDir());
 
         agentProcess = AgentProcess.createNull();
         dispatcher = new Dispatcher(config.outputsDir(), new FileBasedAgentTasks(config, repository), agentProcess, Runnable::run);
@@ -73,7 +74,9 @@ class DispatcherTest {
 
         String validFilename = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
         Path webhookFile = config.pendingDir().resolve(validFilename);
-        Files.writeString(webhookFile, "{}");
+        Files.writeString(webhookFile, """
+                {"action": "opened", "issue": {"number": 1}}
+                """);
 
         dispatcher.dispatch();
 
@@ -82,18 +85,19 @@ class DispatcherTest {
     }
 
     @Test
-    void dispatch_shouldProcessAllPendingFiles() throws IOException {
+    void dispatch_shouldProcessAllPendingIssuesOpenedFiles() throws IOException {
+        String issuesOpenedContent = """
+                {"action": "opened", "issue": {"number": 1}}
+                """;
         String filename1 = "2026-01-29T12:00:00.000Z_repo1_abc12345.json";
         String filename2 = "2026-01-29T12:00:01.000Z_repo2_def67890.json";
-        Files.writeString(config.pendingDir().resolve(filename1), "{}");
-        Files.writeString(config.pendingDir().resolve(filename2), "{}");
+        Files.writeString(config.pendingDir().resolve(filename1), issuesOpenedContent);
+        Files.writeString(config.pendingDir().resolve(filename2), issuesOpenedContent);
 
         dispatcher.dispatch();
 
-        assertThat(Files.exists(config.pendingDir().resolve(filename1))).isFalse();
-        assertThat(Files.exists(config.pendingDir().resolve(filename2))).isFalse();
-        assertThat(Files.exists(config.processingDir().resolve(filename1))).isFalse();
-        assertThat(Files.exists(config.processingDir().resolve(filename2))).isFalse();
+        assertThat(Files.exists(config.completedDir().resolve(filename1))).isTrue();
+        assertThat(Files.exists(config.completedDir().resolve(filename2))).isTrue();
     }
 
     @Test
@@ -112,6 +116,7 @@ class DispatcherTest {
         String filename = "2026-01-30T12:00:00.000Z_test-repo_abc12345.json";
         String webhookContent = """
                 {
+                    "action": "opened",
                     "issue": {
                         "number": 42,
                         "title": "Geography question"
@@ -136,12 +141,10 @@ class DispatcherTest {
         String filename = "2026-01-30T12:00:00.000Z_test-repo_def67890.json";
         String webhookContent = """
                 {
-                    "ref": "refs/heads/main",
-                    "commits": [
-                        {
-                            "message": "What is the capital of Great Britain?"
-                        }
-                    ]
+                    "action": "opened",
+                    "issue": {
+                        "title": "No number here"
+                    }
                 }
                 """;
         Files.writeString(config.pendingDir().resolve(filename), webhookContent);
@@ -156,16 +159,71 @@ class DispatcherTest {
 
     @Test
     void dispatch_shouldProcessSameRepoInNextCycle() throws IOException {
+        String issuesOpenedContent = """
+                {"action": "opened", "issue": {"number": 1}}
+                """;
         String filename1 = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
         String filename2 = "2026-01-29T12:00:01.000Z_my-repo_def67890.json";
-        Files.writeString(config.pendingDir().resolve(filename1), "{}");
+        Files.writeString(config.pendingDir().resolve(filename1), issuesOpenedContent);
 
         dispatcher.dispatch();
         assertThat(Files.exists(config.completedDir().resolve(filename1))).isTrue();
 
-        Files.writeString(config.pendingDir().resolve(filename2), "{}");
+        Files.writeString(config.pendingDir().resolve(filename2), issuesOpenedContent);
         dispatcher.dispatch();
         assertThat(Files.exists(config.completedDir().resolve(filename2))).isTrue();
+    }
+
+    @Test
+    void dispatch_shouldProcessIssuesOpenedWebhook() throws IOException {
+        String filename = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
+        String issuesOpenedContent = """
+                {
+                    "action": "opened",
+                    "issue": { "number": 1, "title": "Bug report" }
+                }
+                """;
+        Files.writeString(config.pendingDir().resolve(filename), issuesOpenedContent);
+
+        dispatcher.dispatch();
+
+        assertThat(Files.exists(config.completedDir().resolve(filename))).isTrue();
+        assertThat(Files.exists(config.skippedDir().resolve(filename))).isFalse();
+    }
+
+    @Test
+    void dispatch_shouldMoveUnsupportedEventToSkipped() throws IOException {
+        String filename = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
+        String pushContent = """
+                {
+                    "ref": "refs/heads/main",
+                    "commits": []
+                }
+                """;
+        Files.writeString(config.pendingDir().resolve(filename), pushContent);
+
+        dispatcher.dispatch();
+
+        assertThat(Files.exists(config.skippedDir().resolve(filename))).isTrue();
+        assertThat(Files.exists(config.completedDir().resolve(filename))).isFalse();
+        assertThat(Files.exists(config.pendingDir().resolve(filename))).isFalse();
+    }
+
+    @Test
+    void dispatch_shouldMoveIssuesClosedToSkipped() throws IOException {
+        String filename = "2026-01-29T12:00:00.000Z_my-repo_abc12345.json";
+        String issuesClosedContent = """
+                {
+                    "action": "closed",
+                    "issue": { "number": 1 }
+                }
+                """;
+        Files.writeString(config.pendingDir().resolve(filename), issuesClosedContent);
+
+        dispatcher.dispatch();
+
+        assertThat(Files.exists(config.skippedDir().resolve(filename))).isTrue();
+        assertThat(Files.exists(config.completedDir().resolve(filename))).isFalse();
     }
 
     @Test
@@ -173,10 +231,13 @@ class DispatcherTest {
         List<Runnable> submitted = new ArrayList<>();
         dispatcher = new Dispatcher(config.outputsDir(), new FileBasedAgentTasks(config, repository), agentProcess, submitted::add);
 
+        String issuesOpenedContent = """
+                {"action": "opened", "issue": {"number": 1}}
+                """;
         String filename1 = "2026-01-29T12:00:00.000Z_same-repo_abc12345.json";
         String filename2 = "2026-01-29T12:00:01.000Z_same-repo_def67890.json";
-        Files.writeString(config.pendingDir().resolve(filename1), "{}");
-        Files.writeString(config.pendingDir().resolve(filename2), "{}");
+        Files.writeString(config.pendingDir().resolve(filename1), issuesOpenedContent);
+        Files.writeString(config.pendingDir().resolve(filename2), issuesOpenedContent);
 
         dispatcher.dispatch();
 

@@ -51,6 +51,20 @@ The daemon operates on a strict directory structure (configurable root, e.g., `/
 -   `processing/`: Webhooks currently being handled by an Agent.
 -   `completed/`: Successfully processed webhooks (optional archive).
 -   `failed/`: Webhooks that caused an agent crash or failed to parse.
+-   `skipped/`: Webhooks with unsupported event types (not processed by any agent).
+
+### Supported Webhook Event Types
+Only the following GitHub webhook event types trigger agent processing:
+-   **`issues.opened`** — A new issue was opened.
+
+All other event types are moved to the `skipped/` directory without processing.
+This includes (but is not limited to):
+-   `issues.closed`, `issues.edited`, `issues.labeled`, etc.
+-   `pull_request.opened`, `pull_request.closed`, `pull_request.merged`, etc.
+-   `push` (branch push events)
+-   `create`, `delete` (branch/tag creation/deletion)
+-   `issue_comment.created` and other comment events
+-   Any unknown or malformed event structure
 
 ### Code Style
 -   Standard Java naming conventions (CamelCase for classes/methods).

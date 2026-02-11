@@ -38,4 +38,8 @@ public record FileBasedTasksConfig(Path storageRoot, Path repoBaseDir) {
     public Path outputsDir() {
         return storageRoot.resolve("outputs");
     }
+
+    public Path skippedDir() {
+        return storageRoot.resolve("skipped");
+    }
 }

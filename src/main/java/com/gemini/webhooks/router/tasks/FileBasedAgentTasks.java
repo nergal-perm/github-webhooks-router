@@ -5,6 +5,7 @@ import com.gemini.webhooks.router.domain.InvalidAgentTask;
 import com.gemini.webhooks.router.domain.ProcessableWebhook;
 import com.gemini.webhooks.router.domain.WebhookFilename;
 import com.gemini.webhooks.router.storage.TaskRepository;
+import com.gemini.webhooks.router.utils.WebhookParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +67,22 @@ public class FileBasedAgentTasks implements AgentTasks {
         } catch (IOException e) {
             logger.error("Failed to move invalid webhook to failed: {}", filename, e);
         }
+    }
+
+    @Override
+    public void skipUnsupported() {
+        tasks.listPending().forEach(filename -> {
+            try {
+                String content = Files.readString(config.pendingDir().resolve(filename));
+                String eventType = WebhookParser.extractEventType(content);
+                if (!"issues.opened".equals(eventType)) {
+                    tasks.move(filename, config.pendingDir(), config.skippedDir());
+                    logger.info("Skipped webhook {} with event type: {}", filename, eventType);
+                }
+            } catch (IOException e) {
+                logger.error("Failed to check event type for: {}", filename, e);
+            }
+        });
     }
 
     @Override

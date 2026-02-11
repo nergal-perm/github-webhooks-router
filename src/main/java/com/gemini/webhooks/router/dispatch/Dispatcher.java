@@ -36,6 +36,7 @@ public class Dispatcher {
 
     public void dispatch() {
         tasks.clearInvalid();
+        tasks.skipUnsupported();
         tasks.recoverStuck(activeRepos);
 
          tasks.listPending().stream()

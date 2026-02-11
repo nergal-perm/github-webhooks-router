@@ -13,6 +13,8 @@ public interface AgentTasks {
 
     void clearInvalid();
 
+    void skipUnsupported();
+
     boolean startProcessing(AgentTask task);
 
     Optional<ProcessableWebhook> prepareForProcessing(AgentTask task, Path outputDir);
