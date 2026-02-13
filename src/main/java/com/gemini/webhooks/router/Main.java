@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private static final int POLL_INTERVAL_SECONDS = 60;
 
     public static void main(String[] args) {
         CliArgs cliArgs = new CliArgs();
@@ -64,7 +65,7 @@ public class Main {
             } catch (Exception e) {
                 logger.error("Downloader error", e);
             }
-        }, 0, 60, TimeUnit.SECONDS);
+        }, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
 
         scheduler.scheduleAtFixedRate(() -> {
             try {

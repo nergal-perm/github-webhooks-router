@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,13 +18,24 @@ public class Downloader {
 
     private final DynamoDbSource source;
     private final TaskRepository repository;
+    private final QuietHours quietHours;
 
     public Downloader(DynamoDbSource source, TaskRepository repository) {
+        this(source, repository, QuietHours.none());
+    }
+
+    public Downloader(DynamoDbSource source, TaskRepository repository, QuietHours quietHours) {
         this.source = source;
         this.repository = repository;
+        this.quietHours = quietHours;
     }
 
     public void download() {
+        if (quietHours.isActive(LocalTime.now())) {
+            logger.debug("Quiet hours active — skipping DynamoDB poll");
+            return;
+        }
+
         List<WebhookRecord> records;
         try {
             records = source.fetchAll();

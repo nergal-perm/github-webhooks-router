@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -160,5 +161,33 @@ class DownloaderTest {
 
         assertThat(repository.listPending()).isEmpty();
         assertThat(deleteTracker.deletedIds()).isEmpty();
+    }
+
+    // Quiet hours active: DynamoDB not scanned, no files written
+    @Test
+    void download_whenQuietHoursActive_skipsPollingEntirely() {
+        QuietHours alwaysActive = QuietHours.of(LocalTime.of(0, 0), LocalTime.of(23, 59));
+        DynamoDbSource source = DynamoDbSource.createNull(List.of(new WebhookRecord(DELIVERY_ID, new WebhookPayload(PAYLOAD))));
+        deleteTracker = source.trackDeletes();
+        Downloader downloader = new Downloader(source, repository, alwaysActive);
+
+        downloader.download();
+
+        assertThat(repository.listPending()).isEmpty();
+        assertThat(deleteTracker.deletedIds()).isEmpty();
+    }
+
+    // Quiet hours inactive: normal behaviour proceeds
+    @Test
+    void download_whenQuietHoursInactive_proceedsNormally() {
+        QuietHours neverActive = QuietHours.none();
+        DynamoDbSource source = DynamoDbSource.createNull(List.of(new WebhookRecord(DELIVERY_ID, new WebhookPayload(PAYLOAD))));
+        deleteTracker = source.trackDeletes();
+        Downloader downloader = new Downloader(source, repository, neverActive);
+
+        downloader.download();
+
+        assertThat(repository.listPending()).hasSize(1);
+        assertThat(deleteTracker.deletedIds()).containsExactly(DELIVERY_ID);
     }
 }
