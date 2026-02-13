@@ -9,6 +9,7 @@ import com.gemini.webhooks.router.tasks.AgentTasks;
 import com.gemini.webhooks.router.tasks.FileBasedAgentTasks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,9 +23,23 @@ public class Main {
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public static void main(String[] args) {
+        CliArgs cliArgs = new CliArgs();
+        CommandLine commandLine = new CommandLine(cliArgs);
+        try {
+            CommandLine.ParseResult parseResult = commandLine.parseArgs(args);
+            if (parseResult.isUsageHelpRequested()) {
+                commandLine.usage(System.out);
+                System.exit(0);
+            }
+        } catch (CommandLine.ParameterException e) {
+            System.err.println(e.getMessage());
+            commandLine.usage(System.err);
+            System.exit(1);
+        }
+
         logger.info("Starting Webhooks Router Daemon...");
 
-        FileBasedTasksConfig config = FileBasedTasksConfig.create();
+        FileBasedTasksConfig config = cliArgs.toConfig();
 
         try {
             ensureDirectoriesExist(config);

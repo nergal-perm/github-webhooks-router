@@ -26,6 +26,13 @@ Then both the Downloader thread and the Dispatcher thread are scheduled to run
 And the Downloader begins polling DynamoDB for pending webhooks
 And the Dispatcher begins scanning the local `pending/` directory for files to dispatch.
 
+#### Scenario: CLI flags applied before daemon threads start
+Given the daemon is launched with `--storage-root /var/lib/webhooks-router --table-name ProdTable`
+When the application initialises
+Then the Downloader uses `ProdTable` as the DynamoDB table name
+And the Dispatcher uses `/var/lib/webhooks-router` as the storage root
+And both threads start normally.
+
 #### Scenario: Graceful Shutdown
 Given the application is running
 And the dispatcher is processing webhooks

@@ -18,6 +18,7 @@
     <testable-io.version>0.3.1</testable-io.version>
     <jackson.version>2.16.1</jackson.version>
     <aws.sdk.version>2.20.143</aws.sdk.version>
+    <picocli.version>4.7.6</picocli.version>
   </properties>
 
   <dependencies>
@@ -57,6 +58,11 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>dynamodb</artifactId>
       <version>${aws.sdk.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>${picocli.version}</version>
     </dependency>
   </dependencies>
 
