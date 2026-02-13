@@ -133,4 +133,39 @@ class WebhookPayloadTest {
 
         assertThat(payload.rawJson()).isEqualTo(json);
     }
+
+    @Test
+    void repoFullName_returnsFullNameFromValidPayload() {
+        WebhookPayload payload = new WebhookPayload("{\"repository\":{\"full_name\":\"owner/my-repo\"}}");
+
+        assertThat(payload.repoFullName()).contains("owner/my-repo");
+    }
+
+    @Test
+    void repoFullName_returnsEmptyWhenRepositoryFieldIsMissing() {
+        WebhookPayload payload = new WebhookPayload("{\"action\":\"opened\"}");
+
+        assertThat(payload.repoFullName()).isEmpty();
+    }
+
+    @Test
+    void repoFullName_returnsEmptyWhenFullNameIsMissing() {
+        WebhookPayload payload = new WebhookPayload("{\"repository\":{\"name\":\"my-repo\"}}");
+
+        assertThat(payload.repoFullName()).isEmpty();
+    }
+
+    @Test
+    void repoFullName_returnsEmptyWhenFullNameIsJsonNull() {
+        WebhookPayload payload = new WebhookPayload("{\"repository\":{\"full_name\":null}}");
+
+        assertThat(payload.repoFullName()).isEmpty();
+    }
+
+    @Test
+    void repoFullName_returnsEmptyWhenPayloadIsMalformedJson() {
+        WebhookPayload payload = new WebhookPayload("not-valid-json{{{");
+
+        assertThat(payload.repoFullName()).isEmpty();
+    }
 }

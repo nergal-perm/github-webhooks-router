@@ -58,6 +58,20 @@ public class WebhookPayload {
         return "issues.opened".equals(eventType());
     }
 
+    public Optional<String> repoFullName() {
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode fullName = root.path("repository").path("full_name");
+            if (fullName.isMissingNode() || fullName.isNull()) {
+                return Optional.empty();
+            }
+            return Optional.of(fullName.asText());
+        } catch (Exception e) {
+            logger.warn("Failed to parse webhook JSON for repository name", e);
+            return Optional.empty();
+        }
+    }
+
     public String rawJson() {
         return json;
     }
