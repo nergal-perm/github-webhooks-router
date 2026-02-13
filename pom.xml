@@ -17,6 +17,7 @@
     <assertj.version>3.24.2</assertj.version>
     <testable-io.version>0.3.1</testable-io.version>
     <jackson.version>2.16.1</jackson.version>
+    <aws.sdk.version>2.20.143</aws.sdk.version>
   </properties>
 
   <dependencies>
@@ -51,6 +52,11 @@
       <groupId>com.yegor256</groupId>
       <artifactId>mktmp</artifactId>
       <version>0.0.5</version>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>dynamodb</artifactId>
+      <version>${aws.sdk.version}</version>
     </dependency>
   </dependencies>
 

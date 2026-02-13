@@ -1,6 +1,8 @@
 package com.gemini.webhooks.router;
 
 import com.gemini.webhooks.router.dispatch.Dispatcher;
+import com.gemini.webhooks.router.download.DynamoDbSource;
+import com.gemini.webhooks.router.download.Downloader;
 import com.gemini.webhooks.router.storage.FileSystemTaskRepository;
 import com.gemini.webhooks.router.storage.TaskRepository;
 import com.gemini.webhooks.router.tasks.AgentTasks;
@@ -34,9 +36,19 @@ public class Main {
         TaskRepository repository = FileSystemTaskRepository.create(config);
         AgentTasks tasks = new FileBasedAgentTasks(config, repository);
         Dispatcher dispatcher = new Dispatcher(config, tasks);
+        DynamoDbSource dynamoDbSource = DynamoDbSource.create(config.tableName());
+        Downloader downloader = new Downloader(dynamoDbSource, repository);
 
         scheduler.scheduleAtFixedRate(() -> {
             logger.info("Hello, world. The time is {}", Instant.now());
+        }, 0, 60, TimeUnit.SECONDS);
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                downloader.download();
+            } catch (Exception e) {
+                logger.error("Downloader error", e);
+            }
         }, 0, 60, TimeUnit.SECONDS);
 
         scheduler.scheduleAtFixedRate(() -> {

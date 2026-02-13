@@ -1,15 +1,4 @@
-# system-lifecycle Specification
-
-## Purpose
-Defines the core runtime behavior, lifecycle management, and liveness monitoring of the daemon application.
-## Requirements
-### Requirement: System Runtime
-The application MUST run on a standard Java Virtual Machine.
-
-#### Scenario: Java Version
-Given a host machine with Java 21 installed
-When the application is launched
-Then it starts successfully without version incompatibility errors.
+## MODIFIED Requirements
 
 ### Requirement: Daemon Execution
 The application MUST be capable of running as a long-lived background process (daemon) managed by the OS init system.
@@ -36,11 +25,3 @@ And the Dispatcher stops accepting new work
 And the Downloader stops scheduling new poll cycles
 And any in-progress agent subprocess is allowed to complete or is terminated
 And the application exits.
-
-### Requirement: Operational Logging
-The application MUST output heartbeat logs to indicate liveness.
-
-#### Scenario: Heartbeat
-Given the application is running
-Then it writes a "Hello, world" log message containing the current timestamp to Standard Output (stdout) at least once every 60 seconds.
-

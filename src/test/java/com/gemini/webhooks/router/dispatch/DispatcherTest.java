@@ -31,7 +31,7 @@ class DispatcherTest {
         Path storageRoot = tempDir.resolve("storage");
         Path repoBaseDir = tempDir.resolve("repos");
 
-        config = new FileBasedTasksConfig(storageRoot, repoBaseDir);
+        config = FileBasedTasksConfig.create(storageRoot, repoBaseDir);
         repository = FileSystemTaskRepository.create(config);
 
         Files.createDirectories(config.pendingDir());
