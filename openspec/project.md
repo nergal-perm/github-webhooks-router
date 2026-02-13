@@ -78,3 +78,29 @@ This includes (but is not limited to):
 ## External Dependencies
 -   **AWS DynamoDB:** Source of truth for incoming webhooks.
 -   **Local AI Agent:** The downstream consumer of the webhooks (invoked via `ProcessBuilder`).
+
+## Roadmap
+
+Planned directions, not yet proposed or specced. Each item is a candidate for a future change proposal.
+
+### 1. Pluggable Agent Backends
+Currently the Dispatcher hardcodes a single agent executable (`gemini`). The goal is to make agent selection configurable and eventually dynamic.
+
+-   Define an **Agent Configuration** model: a named agent entry with an executable path, argument template, and optional selector criteria.
+-   The Dispatcher chooses which agent to invoke based on a **selection strategy**: static (configured per-repo or globally), or dynamic (chosen at dispatch time based on issue content or metadata).
+-   Initial concrete use case: support `claude` as an alternative to `gemini`, selectable via configuration.
+
+### 2. Pre-dispatch Task Analysis
+Before handing a webhook to a full coding agent, run a **lightweight analysis step** to determine the best invocation parameters (agent choice, flags, context hints, etc.).
+
+-   A fast/cheap LLM call reads the issue title and body and produces a structured decision: which agent backend to use, any extra prompt context to inject, estimated complexity, etc.
+-   The analysis result is written alongside the webhook file (e.g., `<name>.analysis.json`) and consumed by the Dispatcher when building the agent subprocess command.
+-   Must not block the Dispatcher if the analysis step is slow or fails — fall back to defaults.
+
+### 3. Agent Action Reporting via GitHub Issue Comments
+Agents should persist an audit trail of their actions as comments on the originating GitHub issue, making progress visible directly in the GitHub UI.
+
+-   This is **not** a direct responsibility of the Downloader or Dispatcher; it is an agent-side concern.
+-   The router's role is to ensure agents receive enough context to post comments: at minimum, the issue number and repository full name must be passed as invocation parameters (already present in the webhook JSON).
+-   Agent configuration (see item 1) should include an optional `reporting` section that enables/disables comment posting and specifies the GitHub token or app credential to use.
+-   Future: the Dispatcher could optionally post a "started processing" comment when it launches an agent, and a "completed" or "failed" comment when the subprocess exits.
