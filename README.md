@@ -29,6 +29,10 @@ The agent subprocess:
 - Executes in the context of the repository directory
 - Returns exit code 0 for success, non-zero for failure
 
+## Deployment
+
+To run the daemon as a systemd service on Ubuntu, see [`deploy/README.md`](deploy/README.md).
+
 ## Running the Daemon
 
 Build and run:
