@@ -15,14 +15,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class DynamoDbSource {
+public class DynamoDbSource implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(DynamoDbSource.class);
 
     private final DynamoDbClient client;
     private final String tableName;
     private final List<WebhookRecord> nullRecords;
-    private final List<DeleteTracker> trackers = new ArrayList<>();
+    private final List<DeleteTracker> deleteTrackers = new ArrayList<>();
+    private final List<CloseTracker> closeTrackers = new ArrayList<>();
 
     public static DynamoDbSource create(String tableName) {
         return new DynamoDbSource(DynamoDbClient.create(), tableName, null);
@@ -44,8 +45,24 @@ public class DynamoDbSource {
 
     public DeleteTracker trackDeletes() {
         DeleteTracker tracker = new DeleteTracker();
-        trackers.add(tracker);
+        deleteTrackers.add(tracker);
         return tracker;
+    }
+
+    public CloseTracker trackClose() {
+        CloseTracker tracker = new CloseTracker();
+        closeTrackers.add(tracker);
+        return tracker;
+    }
+
+    @Override
+    public void close() {
+        closeTrackers.forEach(CloseTracker::record);
+        if (nullRecords != null) {
+            return;
+        }
+        client.close();
+        logger.debug("DynamoDbClient closed.");
     }
 
     public List<WebhookRecord> fetchAll() {
@@ -64,7 +81,7 @@ public class DynamoDbSource {
     }
 
     public void delete(String deliveryId) {
-        trackers.forEach(t -> t.add(deliveryId));
+        deleteTrackers.forEach(t -> t.add(deliveryId));
         if (nullRecords != null) {
             return;
         }
@@ -84,6 +101,18 @@ public class DynamoDbSource {
 
         public List<String> deletedIds() {
             return Collections.unmodifiableList(deletedIds);
+        }
+    }
+
+    public static class CloseTracker {
+        private boolean closed = false;
+
+        void record() {
+            closed = true;
+        }
+
+        public boolean wasClosed() {
+            return closed;
         }
     }
 }

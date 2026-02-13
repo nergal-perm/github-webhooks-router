@@ -69,6 +69,7 @@ public class Main {
             } catch (InterruptedException e) {
                 scheduler.shutdownNow();
             }
+            dynamoDbSource.close();
             logger.info("Shutdown complete.");
         }));
     }
