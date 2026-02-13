@@ -1,15 +1,4 @@
-# system-lifecycle Specification
-
-## Purpose
-Defines the core runtime behavior, lifecycle management, and liveness monitoring of the daemon application.
-## Requirements
-### Requirement: System Runtime
-The application MUST run on a standard Java Virtual Machine.
-
-#### Scenario: Java Version
-Given a host machine with Java 21 installed
-When the application is launched
-Then it starts successfully without version incompatibility errors.
+## MODIFIED Requirements
 
 ### Requirement: Daemon Execution
 The application MUST be capable of running as a long-lived background process (daemon) managed by the OS init system.
@@ -58,11 +47,3 @@ And the application exits.
 - **WHEN** the daemon emits any log output (including heartbeats and error messages)
 - **THEN** all output is captured by journald and accessible via `journalctl -u webhooks-router`
 - **AND** no separate log-file configuration is required for basic operational visibility
-
-### Requirement: Operational Logging
-The application MUST output heartbeat logs to indicate liveness.
-
-#### Scenario: Heartbeat
-Given the application is running
-Then it writes a "Hello, world" log message containing the current timestamp to Standard Output (stdout) at least once every 60 seconds.
-
